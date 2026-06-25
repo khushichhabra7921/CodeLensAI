@@ -4,6 +4,7 @@ from codelens.analyzer import analyze_project
 from codelens.test_generator import generate_test_suggestions
 from codelens.test_writer import generate_pytest_files
 from codelens.test_runner import run_pytest
+from codelens.ai_explainer import generate_ai_explanation
 from codelens.reporter import generate_markdown_report
 
 
@@ -20,12 +21,19 @@ def main():
     generated_test_files = generate_pytest_files(results)
     test_run_result = run_pytest("generated_tests")
 
+    ai_explanation = generate_ai_explanation(
+        results,
+        issues,
+        test_suggestions
+    )
+
     report_path = generate_markdown_report(
         results,
         issues,
         test_suggestions,
         generated_test_files,
-        test_run_result
+        test_run_result,
+        ai_explanation
     )
 
     print()
@@ -45,6 +53,7 @@ def main():
     print(f"Test suggestions generated: {len(test_suggestions)}")
     print(f"Pytest files generated: {len(generated_test_files)}")
     print(f"Generated tests passed: {test_run_result['passed']}")
+    print("AI explanation generated: True")
 
     print()
     print("Detailed File Analysis")
@@ -111,23 +120,9 @@ def main():
         print("No issues found.")
 
     print()
-    print("Test Suggestions")
+    print("AI Codebase Explanation")
     print("-" * 40)
-
-    if test_suggestions:
-        for suggestion in test_suggestions:
-            function_name = suggestion["function"]
-            arguments = ", ".join(suggestion["arguments"])
-
-            print(f"Function: {function_name}({arguments})")
-            print("Suggested tests:")
-
-            for test in suggestion["suggested_tests"]:
-                print(f"  - {test}")
-
-            print()
-    else:
-        print("No test suggestions generated.")
+    print(ai_explanation)
 
     print()
     print("Generated Pytest Files")

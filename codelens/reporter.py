@@ -7,11 +7,12 @@ def generate_markdown_report(
     test_suggestions,
     generated_test_files,
     test_run_result,
+    ai_explanation,
     output_path="reports/codelens_report.md"
 ):
     """
-    Generates a Markdown report from scanner, analyzer, test suggestion,
-    generated test files, and pytest run results.
+    Generates a Markdown report from scanner, analyzer, test suggestions,
+    generated test files, pytest result, and AI explanation.
     """
 
     output_path = Path(output_path)
@@ -90,6 +91,16 @@ def generate_markdown_report(
             lines.append("- None")
 
         lines.append("")
+
+    lines.append("## AI Codebase Explanation")
+    lines.append("")
+
+    if ai_explanation:
+        lines.append(ai_explanation)
+    else:
+        lines.append("No AI explanation generated.")
+
+    lines.append("")
 
     lines.append("## Code Quality Issues")
     lines.append("")
