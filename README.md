@@ -1,5 +1,7 @@
 # CodeLens AI
 
+![CodeLens AI Analysis](https://github.com/khushichhabra7921/CodeLensAI/actions/workflows/codelens.yml/badge.svg)
+
 CodeLens AI is a Python-based code analysis tool that scans a Python project, detects code quality issues, generates pytest test suggestions, creates actual pytest test files, runs the generated tests, and produces a Markdown report.
 
 ## Features
