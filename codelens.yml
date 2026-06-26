@@ -18,6 +18,13 @@ rules:
   check_security: true
   allow_http_urls: false
   check_dependencies: true
+  dependency_file_patterns:
+    - requirements.txt
+    - requirements-dev.txt
+    - dev-requirements.txt
+    - requirements/*.txt
+    - pyproject.toml
+    - Pipfile
   require_pinned_dependencies: true
   allow_editable_installs: false
   allow_http_dependencies: false

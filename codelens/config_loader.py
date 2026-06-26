@@ -28,6 +28,14 @@ DEFAULT_CONFIG = {
         "check_security": True,
         "allow_http_urls": False,
         "check_dependencies": True,
+        "dependency_file_patterns": [
+            "requirements.txt",
+            "requirements-dev.txt",
+            "dev-requirements.txt",
+            "requirements/*.txt",
+            "pyproject.toml",
+            "Pipfile",
+        ],
         "require_pinned_dependencies": True,
         "allow_editable_installs": False,
         "allow_http_dependencies": False,
@@ -187,5 +195,6 @@ def validate_config(config):
 
     validate_list_config(config, "ignore", "folders")
     validate_list_config(config, "ignore", "files")
+    validate_list_config(config, "rules", "dependency_file_patterns")
 
     return True
