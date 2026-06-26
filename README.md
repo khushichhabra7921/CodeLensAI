@@ -2,7 +2,7 @@
 
 ![CodeLens AI Analysis](https://github.com/khushichhabra7921/CodeLensAI/actions/workflows/codelens.yml/badge.svg)
 
-CodeLens AI is an AI-powered Python code analysis tool that scans a Python project, detects code quality issues, detects common security risks, generates pytest test suggestions, creates actual pytest test files, runs those tests automatically, calculates a code quality and security score, and produces Markdown, JSON, and HTML reports with an AI-generated explanation of the codebase.
+CodeLens AI is an AI-powered Python code analysis tool that scans a Python project, detects code quality issues, detects common security risks, generates pytest test suggestions, creates actual pytest test files, runs those tests automatically, calculates a code quality and security score, tracks score history over multiple runs, and produces Markdown, JSON, and HTML reports with an AI-generated explanation of the codebase.
 
 ---
 
@@ -24,13 +24,16 @@ CodeLens AI is an AI-powered Python code analysis tool that scans a Python proje
 - Detects unsafe `yaml.load()` usage without SafeLoader
 - Detects insecure HTTP URLs
 - Calculates a code quality and security score
+- Tracks score history between analysis runs
+- Shows whether the score improved, declined, or stayed unchanged
 - Generates pytest test suggestions
 - Creates actual pytest test files
 - Runs generated pytest tests automatically
 - Generates a Markdown report
 - Generates a structured JSON report
 - Generates a browser-friendly HTML report
-- Supports CLI options for report format, skipping AI, and skipping tests
+- Generates score history reports
+- Supports CLI options for report format, skipping AI, skipping tests, and disabling history
 - Uses Groq LLM to generate an AI explanation of the codebase
 - Runs automatically on GitHub Actions for every push and pull request
 - Uploads reports as GitHub Actions artifacts
@@ -48,6 +51,7 @@ CodeLens AI is an AI-powered Python code analysis tool that scans a Python proje
 - Markdown report generation
 - JSON report generation
 - HTML report generation
+- Score history tracking
 - argparse CLI
 
 ---
@@ -65,6 +69,7 @@ CodeLensAI/
 │   ├── __init__.py
 │   ├── ai_explainer.py
 │   ├── analyzer.py
+│   ├── history_tracker.py
 │   ├── html_reporter.py
 │   ├── json_reporter.py
 │   ├── reporter.py
@@ -88,10 +93,13 @@ CodeLensAI/
 ├── reports/
 │   ├── codelens_report.md
 │   ├── codelens_report.json
-│   └── codelens_report.html
+│   ├── codelens_report.html
+│   ├── score_history.json
+│   └── score_history.md
 │
 ├── .env
 ├── .gitignore
+├── DEMO_GUIDE.md
 ├── main.py
 ├── README.md
 └── requirements.txt
@@ -123,6 +131,8 @@ It runs the generated tests
 It generates an AI explanation of the codebase
         ↓
 It creates Markdown, JSON, and HTML reports
+        ↓
+It updates score history and trend reports
 ```
 
 ---
@@ -159,6 +169,12 @@ For GitHub Actions, add your Groq API key as a repository secret:
 
 ```text
 GROQ_API_KEY
+```
+
+You can also run the project without AI explanation by using:
+
+```bash
+python main.py analyze sample_projects/calculator_app --skip-ai
 ```
 
 ---
@@ -207,6 +223,8 @@ This creates:
 reports/codelens_report.md
 reports/codelens_report.json
 reports/codelens_report.html
+reports/score_history.json
+reports/score_history.md
 ```
 
 ### Generate Only Markdown Report
@@ -257,6 +275,18 @@ This is useful when:
 - You are analyzing a project whose imports are not installed
 - You want faster report generation
 
+### Disable Score History Tracking
+
+```bash
+python main.py analyze sample_projects/calculator_app --no-history
+```
+
+This is useful when:
+
+- You do not want to update `score_history.json`
+- You are doing temporary test runs
+- You want a clean one-time report
+
 ### Combine Options
 
 ```bash
@@ -290,9 +320,9 @@ Total issues found: 17
 Code quality issues found: 7
 Security issues found: 10
 Test suggestions generated: 7
-Pytest files generated: 1
-Test run status: Passed
-AI explanation generated: True
+Pytest files generated: 0
+Test run status: Skipped
+AI explanation generated: False (skipped)
 
 Code Quality and Security Score
 ----------------------------------------
@@ -304,9 +334,18 @@ High severity issues: 7
 Medium severity issues: 0
 Low severity issues: 8
 
+Score History
+----------------------------------------
+Total runs tracked: 3
+Trend: Unchanged
+Previous score: 0/100
+Score change: 0
+
 Markdown report generated: reports/codelens_report.md
 JSON report generated: reports/codelens_report.json
 HTML report generated: reports/codelens_report.html
+Score history JSON generated: reports/score_history.json
+Score history Markdown generated: reports/score_history.md
 ```
 
 ---
@@ -452,6 +491,84 @@ Grade mapping:
 
 ---
 
+## Score History Tracking
+
+CodeLens AI tracks score history across runs.
+
+It generates:
+
+```text
+reports/score_history.json
+reports/score_history.md
+```
+
+### `score_history.json`
+
+This file stores structured score history data.
+
+It includes:
+
+- Run timestamp
+- Project path
+- Current score
+- Previous score
+- Score change
+- Trend
+- Grade
+- Status
+- Issue counts
+- Test status
+- Generated report paths
+
+### `score_history.md`
+
+This file stores a readable history table.
+
+It shows:
+
+- Latest run
+- Current score
+- Previous score
+- Score change
+- Trend
+- Recent run history
+
+Example trend values:
+
+```text
+First run for this project
+Improved
+Declined
+Unchanged
+```
+
+### Example
+
+Run the same command twice:
+
+```bash
+python main.py analyze sample_projects/calculator_app --format all --skip-ai
+```
+
+On the second run, the terminal may show:
+
+```text
+Score History
+----------------------------------------
+Total runs tracked: 2
+Trend: Unchanged
+Previous score: 53/100
+Score change: 0
+```
+
+To avoid updating history during temporary testing:
+
+```bash
+python main.py analyze sample_projects/calculator_app --no-history
+```
+
+---
+
 ## Reports
 
 After running CodeLens AI, reports are generated inside:
@@ -476,6 +593,13 @@ The HTML report is generated at:
 
 ```text
 reports/codelens_report.html
+```
+
+The score history files are generated at:
+
+```text
+reports/score_history.json
+reports/score_history.md
 ```
 
 ### Markdown Report
@@ -510,6 +634,54 @@ Open the HTML report on Windows:
 
 ```bash
 start reports/codelens_report.html
+```
+
+---
+
+## JSON Report Structure
+
+The JSON report contains structured data like this:
+
+```json
+{
+    "tool": {
+        "name": "CodeLens AI",
+        "report_type": "json",
+        "generated_at_utc": "2026-06-26T08:53:12.825884+00:00"
+    },
+    "project": {
+        "path": "sample_projects/vulnerable_app"
+    },
+    "summary": {
+        "files_scanned": 1,
+        "imports_found": 4,
+        "functions_found": 7,
+        "classes_found": 0,
+        "total_issues_found": 17,
+        "code_quality_issues_found": 7,
+        "security_issues_found": 10,
+        "test_suggestions_generated": 7,
+        "pytest_files_generated": 0,
+        "test_run_passed": null
+    },
+    "score": {
+        "score": 0,
+        "grade": "F",
+        "status": "Critical"
+    },
+    "scan_results": [],
+    "issues": {
+        "all": [],
+        "code_quality": [],
+        "security": []
+    },
+    "tests": {
+        "suggestions": [],
+        "generated_files": [],
+        "pytest_result": {}
+    },
+    "ai_explanation": ""
+}
 ```
 
 ---
@@ -577,7 +749,7 @@ Run CodeLens AI
         ↓
 Run generated pytest tests
         ↓
-Upload Markdown, JSON, and HTML reports as artifacts
+Upload Markdown, JSON, HTML, and score history reports as artifacts
 ```
 
 The uploaded artifact contains:
@@ -586,6 +758,8 @@ The uploaded artifact contains:
 reports/codelens_report.md
 reports/codelens_report.json
 reports/codelens_report.html
+reports/score_history.json
+reports/score_history.md
 ```
 
 ---
@@ -609,6 +783,7 @@ Completed:
 - Markdown report generator
 - JSON report generator
 - HTML report generator
+- Score history tracking
 - CLI options
 - Test suggestion generator
 - Pytest file generator
@@ -616,6 +791,7 @@ Completed:
 - AI-powered codebase explanation using Groq
 - Sample calculator project
 - Sample vulnerable project
+- Demo guide
 - GitHub Actions workflow
 - GitHub Actions report artifact upload
 
@@ -630,8 +806,10 @@ Planned improvements:
 - Support for analyzing larger real-world repositories
 - Support for multiple programming languages
 - Web dashboard for reports
-- Score history tracking
 - Issue trend comparison between runs
+- More security rules
+- Dependency vulnerability scanning
+- Config file support using `codelens.yml`
 
 ---
 
