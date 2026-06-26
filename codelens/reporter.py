@@ -1,6 +1,20 @@
 from pathlib import Path
 
 
+def get_test_status_label(test_run_result):
+    """
+    Returns a readable test status.
+    """
+
+    if test_run_result.get("skipped"):
+        return "Skipped"
+
+    if test_run_result.get("passed"):
+        return "Passed"
+
+    return "Failed"
+
+
 def generate_markdown_report(
     scan_results,
     issues,
@@ -49,7 +63,7 @@ def generate_markdown_report(
     lines.append(f"- Security issues found: {len(security_issues)}")
     lines.append(f"- Test suggestions generated: {len(test_suggestions)}")
     lines.append(f"- Pytest files generated: {len(generated_test_files)}")
-    lines.append(f"- Test run passed: {test_run_result['passed']}")
+    lines.append(f"- Test run status: {get_test_status_label(test_run_result)}")
     lines.append("")
 
     if code_score:
@@ -192,7 +206,9 @@ def generate_markdown_report(
     lines.append("## Generated Pytest Files")
     lines.append("")
 
-    if generated_test_files:
+    if test_run_result.get("skipped"):
+        lines.append("Test generation and pytest execution were skipped.")
+    elif generated_test_files:
         for file_path in generated_test_files:
             lines.append(f"- `{file_path}`")
     else:
@@ -203,12 +219,15 @@ def generate_markdown_report(
     lines.append("## Pytest Run Result")
     lines.append("")
 
-    if test_run_result["passed"]:
+    if test_run_result.get("skipped"):
+        lines.append("⏭️ **Test generation and pytest execution were skipped.**")
+    elif test_run_result["passed"]:
         lines.append("✅ **All generated tests passed.**")
     else:
         lines.append("❌ **Some generated tests failed.**")
 
     lines.append("")
+    lines.append(f"- Status: `{get_test_status_label(test_run_result)}`")
     lines.append(f"- Command: `{test_run_result['command']}`")
     lines.append(f"- Return code: `{test_run_result['return_code']}`")
     lines.append("")

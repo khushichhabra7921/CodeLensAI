@@ -30,6 +30,7 @@ CodeLens AI is an AI-powered Python code analysis tool that scans a Python proje
 - Generates a Markdown report
 - Generates a structured JSON report
 - Generates a browser-friendly HTML report
+- Supports CLI options for report format, skipping AI, and skipping tests
 - Uses Groq LLM to generate an AI explanation of the codebase
 - Runs automatically on GitHub Actions for every push and pull request
 - Uploads reports as GitHub Actions artifacts
@@ -47,6 +48,7 @@ CodeLens AI is an AI-powered Python code analysis tool that scans a Python proje
 - Markdown report generation
 - JSON report generation
 - HTML report generation
+- argparse CLI
 
 ---
 
@@ -120,11 +122,7 @@ It runs the generated tests
         ↓
 It generates an AI explanation of the codebase
         ↓
-It creates a Markdown report
-        ↓
-It creates a structured JSON report
-        ↓
-It creates a browser-friendly HTML report
+It creates Markdown, JSON, and HTML reports
 ```
 
 ---
@@ -165,7 +163,7 @@ GROQ_API_KEY
 
 ---
 
-## Usage
+## Basic Usage
 
 Analyze the calculator sample project:
 
@@ -193,6 +191,92 @@ python -m pytest generated_tests -v
 
 ---
 
+## CLI Options
+
+CodeLens AI supports command-line options.
+
+### Generate All Reports
+
+```bash
+python main.py analyze sample_projects/calculator_app --format all
+```
+
+This creates:
+
+```text
+reports/codelens_report.md
+reports/codelens_report.json
+reports/codelens_report.html
+```
+
+### Generate Only Markdown Report
+
+```bash
+python main.py analyze sample_projects/calculator_app --format markdown
+```
+
+or:
+
+```bash
+python main.py analyze sample_projects/calculator_app --format md
+```
+
+### Generate Only JSON Report
+
+```bash
+python main.py analyze sample_projects/calculator_app --format json
+```
+
+### Generate Only HTML Report
+
+```bash
+python main.py analyze sample_projects/calculator_app --format html
+```
+
+### Skip AI Explanation
+
+```bash
+python main.py analyze sample_projects/calculator_app --skip-ai
+```
+
+This is useful when:
+
+- You do not have a Groq API key
+- You want faster analysis
+- You are testing only scanner, analyzer, reports, and tests
+
+### Skip Test Generation and Pytest Run
+
+```bash
+python main.py analyze sample_projects/calculator_app --skip-tests
+```
+
+This is useful when:
+
+- You only want analysis and reports
+- You are analyzing a project whose imports are not installed
+- You want faster report generation
+
+### Combine Options
+
+```bash
+python main.py analyze sample_projects/vulnerable_app --format html --skip-ai --skip-tests
+```
+
+### Custom Output Directory
+
+```bash
+python main.py analyze sample_projects/calculator_app --output-dir custom_reports
+```
+
+This creates reports inside:
+
+```text
+custom_reports/
+```
+
+---
+
 ## Example Terminal Output
 
 ```text
@@ -207,7 +291,7 @@ Code quality issues found: 7
 Security issues found: 10
 Test suggestions generated: 7
 Pytest files generated: 1
-Generated tests passed: True
+Test run status: Passed
 AI explanation generated: True
 
 Code Quality and Security Score
@@ -422,52 +506,10 @@ The HTML report is useful for:
 - Faculty mentor presentations
 - Future dashboard design
 
----
+Open the HTML report on Windows:
 
-## JSON Report Structure
-
-The JSON report contains structured data like this:
-
-```json
-{
-    "tool": {
-        "name": "CodeLens AI",
-        "report_type": "json",
-        "generated_at_utc": "2026-06-26T08:53:12.825884+00:00"
-    },
-    "project": {
-        "path": "sample_projects/vulnerable_app"
-    },
-    "summary": {
-        "files_scanned": 1,
-        "imports_found": 4,
-        "functions_found": 7,
-        "classes_found": 0,
-        "total_issues_found": 17,
-        "code_quality_issues_found": 7,
-        "security_issues_found": 10,
-        "test_suggestions_generated": 7,
-        "pytest_files_generated": 1,
-        "test_run_passed": true
-    },
-    "score": {
-        "score": 0,
-        "grade": "F",
-        "status": "Critical"
-    },
-    "scan_results": [],
-    "issues": {
-        "all": [],
-        "code_quality": [],
-        "security": []
-    },
-    "tests": {
-        "suggestions": [],
-        "generated_files": [],
-        "pytest_result": {}
-    },
-    "ai_explanation": ""
-}
+```bash
+start reports/codelens_report.html
 ```
 
 ---
@@ -491,7 +533,7 @@ The vulnerable app intentionally contains unsafe code patterns so that CodeLens 
 Run:
 
 ```bash
-python main.py analyze sample_projects/vulnerable_app
+python main.py analyze sample_projects/vulnerable_app --skip-tests
 ```
 
 This sample may detect:
@@ -567,6 +609,7 @@ Completed:
 - Markdown report generator
 - JSON report generator
 - HTML report generator
+- CLI options
 - Test suggestion generator
 - Pytest file generator
 - Automatic pytest runner

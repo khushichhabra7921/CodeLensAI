@@ -35,6 +35,34 @@ def get_severity_class(severity):
     return "severity-low"
 
 
+def get_test_status_label(test_run_result):
+    """
+    Returns a readable test status.
+    """
+
+    if test_run_result.get("skipped"):
+        return "Skipped"
+
+    if test_run_result.get("passed"):
+        return "Passed"
+
+    return "Failed"
+
+
+def get_test_status_class(test_run_result):
+    """
+    Returns CSS class for test status.
+    """
+
+    if test_run_result.get("skipped"):
+        return "status-skip"
+
+    if test_run_result.get("passed"):
+        return "status-pass"
+
+    return "status-fail"
+
+
 def build_issue_cards(issues):
     """
     Builds HTML cards for code quality or security issues.
@@ -180,6 +208,23 @@ def build_test_suggestions(test_suggestions):
     return "\n".join(sections)
 
 
+def build_generated_files_html(generated_test_files, test_run_result):
+    """
+    Builds HTML for generated pytest files.
+    """
+
+    if test_run_result.get("skipped"):
+        return "<li>Test generation and pytest execution were skipped.</li>"
+
+    if generated_test_files:
+        return "".join(
+            f"<li><code>{html_escape(file_path)}</code></li>"
+            for file_path in generated_test_files
+        )
+
+    return "<li>No pytest files generated.</li>"
+
+
 def generate_html_report(
     scan_results,
     code_quality_issues,
@@ -211,18 +256,13 @@ def generate_html_report(
     total_functions = sum(len(file_result["functions"]) for file_result in scan_results)
     total_classes = sum(len(file_result["classes"]) for file_result in scan_results)
 
-    generated_files_html = ""
+    generated_files_html = build_generated_files_html(
+        generated_test_files,
+        test_run_result,
+    )
 
-    if generated_test_files:
-        generated_files_html = "".join(
-            f"<li><code>{html_escape(file_path)}</code></li>"
-            for file_path in generated_test_files
-        )
-    else:
-        generated_files_html = "<li>No pytest files generated.</li>"
-
-    test_status = "Passed" if test_run_result["passed"] else "Failed"
-    test_status_class = "status-pass" if test_run_result["passed"] else "status-fail"
+    test_status = get_test_status_label(test_run_result)
+    test_status_class = get_test_status_class(test_run_result)
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -399,6 +439,11 @@ def generate_html_report(
 
         .status-fail {{
             color: #dc2626;
+            font-weight: bold;
+        }}
+
+        .status-skip {{
+            color: #92400e;
             font-weight: bold;
         }}
 

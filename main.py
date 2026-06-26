@@ -1,3 +1,4 @@
+import argparse
 import sys
 from pathlib import Path
 
@@ -14,28 +15,123 @@ from codelens.html_reporter import generate_html_report
 from codelens.score_calculator import calculate_code_score
 
 
-def get_project_path():
+def parse_arguments():
     """
-    Supports both commands:
+    Parses command-line arguments.
+
+    Supported examples:
 
     python main.py sample_projects/calculator_app
     python main.py analyze sample_projects/calculator_app
+    python main.py analyze sample_projects/calculator_app --format all
+    python main.py analyze sample_projects/calculator_app --format html
+    python main.py analyze sample_projects/calculator_app --skip-ai
+    python main.py analyze sample_projects/calculator_app --skip-tests
     """
 
-    if len(sys.argv) < 2:
-        print("Usage:")
-        print("  python main.py <project_path>")
-        print("  python main.py analyze <project_path>")
+    parser = argparse.ArgumentParser(
+        prog="CodeLens AI",
+        description="Analyze Python projects for code quality, security issues, tests, and reports.",
+    )
+
+    parser.add_argument(
+        "command_or_path",
+        nargs="?",
+        help="Use 'analyze' or directly provide a project path.",
+    )
+
+    parser.add_argument(
+        "project_path",
+        nargs="?",
+        help="Path to the Python project folder.",
+    )
+
+    parser.add_argument(
+        "--format",
+        dest="report_format",
+        choices=["all", "markdown", "md", "json", "html"],
+        default="all",
+        help="Report format to generate. Options: all, markdown, md, json, html. Default: all.",
+    )
+
+    parser.add_argument(
+        "--skip-ai",
+        action="store_true",
+        help="Skip AI explanation generation.",
+    )
+
+    parser.add_argument(
+        "--skip-tests",
+        action="store_true",
+        help="Skip pytest file generation and pytest execution.",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        default="reports",
+        help="Directory where reports will be saved. Default: reports.",
+    )
+
+    args = parser.parse_args()
+
+    if args.command_or_path is None:
+        parser.print_help()
         return None
 
-    if sys.argv[1] == "analyze":
-        if len(sys.argv) < 3:
-            print("Usage: python main.py analyze <project_path>")
-            return None
+    if args.command_or_path == "analyze":
+        if args.project_path is None:
+            parser.error("Please provide a project path after 'analyze'.")
 
-        return sys.argv[2]
+        args.resolved_project_path = args.project_path
+    else:
+        if args.project_path is not None:
+            parser.error(
+                "Invalid command format. Use: python main.py analyze <project_path>"
+            )
 
-    return sys.argv[1]
+        args.resolved_project_path = args.command_or_path
+
+    if args.report_format == "md":
+        args.report_format = "markdown"
+
+    return args
+
+
+def should_generate_report(report_format, target_format):
+    """
+    Checks whether a report format should be generated.
+    """
+
+    return report_format == "all" or report_format == target_format
+
+
+def create_skipped_test_result():
+    """
+    Creates a pytest result dictionary when --skip-tests is used.
+    """
+
+    return {
+        "passed": None,
+        "skipped": True,
+        "command": "Skipped because --skip-tests was used.",
+        "return_code": 0,
+        "stdout": "Test generation and pytest execution were skipped.",
+        "stderr": "",
+    }
+
+
+def get_test_status_label(test_run_result):
+    """
+    Returns a readable test status.
+    """
+
+    if test_run_result.get("skipped"):
+        return "Skipped"
+
+    if test_run_result.get("passed"):
+        return "Passed"
+
+    return "Failed"
 
 
 def print_project_summary(
@@ -47,6 +143,7 @@ def print_project_summary(
     generated_test_files,
     test_run_result,
     code_score,
+    ai_skipped,
 ):
     """
     Prints a short summary of the analysis result.
@@ -70,8 +167,12 @@ def print_project_summary(
     print(f"Security issues found: {len(security_issues)}")
     print(f"Test suggestions generated: {len(test_suggestions)}")
     print(f"Pytest files generated: {len(generated_test_files)}")
-    print(f"Generated tests passed: {test_run_result['passed']}")
-    print("AI explanation generated: True")
+    print(f"Test run status: {get_test_status_label(test_run_result)}")
+
+    if ai_skipped:
+        print("AI explanation generated: False (skipped)")
+    else:
+        print("AI explanation generated: True")
 
     print()
     print("Code Quality and Security Score")
@@ -181,6 +282,10 @@ def print_generated_tests(generated_test_files, test_run_result):
     print("Generated Pytest Files")
     print("-" * 40)
 
+    if test_run_result.get("skipped"):
+        print("Test generation and pytest execution were skipped.")
+        return
+
     if generated_test_files:
         for file_path in generated_test_files:
             print(f"- {file_path}")
@@ -200,13 +305,31 @@ def print_generated_tests(generated_test_files, test_run_result):
     print(f"Return code: {test_run_result['return_code']}")
 
 
-def main():
-    project_path = get_project_path()
+def print_generated_reports(report_paths):
+    """
+    Prints generated report paths.
+    """
 
-    if project_path is None:
+    print()
+
+    if "markdown" in report_paths:
+        print(f"Markdown report generated: {report_paths['markdown']}")
+
+    if "json" in report_paths:
+        print(f"JSON report generated: {report_paths['json']}")
+
+    if "html" in report_paths:
+        print(f"HTML report generated: {report_paths['html']}")
+
+
+def main():
+    args = parse_arguments()
+
+    if args is None:
         return
 
-    project_path = Path(project_path)
+    project_path = Path(args.resolved_project_path)
+    output_dir = Path(args.output_dir)
 
     if not project_path.exists():
         print(f"Error: Project path does not exist: {project_path}")
@@ -232,52 +355,72 @@ def main():
 
     test_suggestions = generate_test_suggestions(results)
 
-    generated_test_files = generate_pytest_files(results)
+    if args.skip_tests:
+        generated_test_files = []
+        test_run_result = create_skipped_test_result()
+    else:
+        generated_test_files = generate_pytest_files(results)
+        test_run_result = run_pytest("generated_tests")
 
-    test_run_result = run_pytest("generated_tests")
+    if args.skip_ai:
+        ai_explanation = "AI explanation skipped because --skip-ai was used."
+    else:
+        ai_explanation = generate_ai_explanation(
+            results,
+            all_issues,
+            test_suggestions,
+        )
 
-    ai_explanation = generate_ai_explanation(
-        results,
-        all_issues,
-        test_suggestions,
-    )
+    report_paths = {}
 
-    markdown_report_path = generate_markdown_report(
-        results,
-        all_issues,
-        test_suggestions,
-        generated_test_files,
-        test_run_result,
-        ai_explanation,
-        code_score,
-        security_issues,
-    )
+    if should_generate_report(args.report_format, "markdown"):
+        markdown_report_path = generate_markdown_report(
+            results,
+            all_issues,
+            test_suggestions,
+            generated_test_files,
+            test_run_result,
+            ai_explanation,
+            code_score,
+            security_issues,
+            output_path=output_dir / "codelens_report.md",
+        )
 
-    json_report_path = generate_json_report(
-        results,
-        code_quality_issues,
-        security_issues,
-        all_issues,
-        test_suggestions,
-        generated_test_files,
-        test_run_result,
-        ai_explanation,
-        code_score,
-        project_path,
-    )
+        report_paths["markdown"] = markdown_report_path
 
-    html_report_path = generate_html_report(
-        results,
-        code_quality_issues,
-        security_issues,
-        all_issues,
-        test_suggestions,
-        generated_test_files,
-        test_run_result,
-        ai_explanation,
-        code_score,
-        project_path,
-    )
+    if should_generate_report(args.report_format, "json"):
+        json_report_path = generate_json_report(
+            results,
+            code_quality_issues,
+            security_issues,
+            all_issues,
+            test_suggestions,
+            generated_test_files,
+            test_run_result,
+            ai_explanation,
+            code_score,
+            project_path,
+            output_path=output_dir / "codelens_report.json",
+        )
+
+        report_paths["json"] = json_report_path
+
+    if should_generate_report(args.report_format, "html"):
+        html_report_path = generate_html_report(
+            results,
+            code_quality_issues,
+            security_issues,
+            all_issues,
+            test_suggestions,
+            generated_test_files,
+            test_run_result,
+            ai_explanation,
+            code_score,
+            project_path,
+            output_path=output_dir / "codelens_report.html",
+        )
+
+        report_paths["html"] = html_report_path
 
     print_project_summary(
         results,
@@ -288,6 +431,7 @@ def main():
         generated_test_files,
         test_run_result,
         code_score,
+        args.skip_ai,
     )
 
     print_detailed_file_analysis(results)
@@ -300,10 +444,7 @@ def main():
 
     print_generated_tests(generated_test_files, test_run_result)
 
-    print()
-    print(f"Markdown report generated: {markdown_report_path}")
-    print(f"JSON report generated: {json_report_path}")
-    print(f"HTML report generated: {html_report_path}")
+    print_generated_reports(report_paths)
 
 
 if __name__ == "__main__":
