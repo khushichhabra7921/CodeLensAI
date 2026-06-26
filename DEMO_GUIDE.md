@@ -6,7 +6,7 @@ This guide helps you present CodeLens AI confidently to a faculty mentor, projec
 
 ## 1. One-Line Project Introduction
 
-CodeLens AI is a Python code analysis tool that scans a project, detects code quality and security issues, generates test suggestions, creates pytest tests, calculates a quality score, and exports Markdown, JSON, and HTML reports.
+CodeLens AI is a Python code analysis tool that scans a project, detects code quality and security issues, generates test suggestions, creates pytest tests, calculates a quality score, tracks score history, and exports Markdown, JSON, and HTML reports.
 
 ---
 
@@ -25,12 +25,15 @@ It takes a Python project as input and automatically checks:
 - Whether unsafe security patterns exist
 - Whether generated tests pass
 - What overall score the project deserves
+- Whether the score improved, declined, or stayed unchanged compared to previous runs
 
 Then it creates reports that can be viewed in:
 
 - Markdown format
 - JSON format
 - HTML format
+
+It also creates score history files to track project health over time.
 
 ---
 
@@ -45,8 +48,9 @@ Manual review can be:
 - Easy to forget
 - Difficult for beginners
 - Hard to automate in small projects
+- Difficult to compare over time
 
-CodeLens AI solves this by automatically analyzing Python projects and generating clear reports.
+CodeLens AI solves this by automatically analyzing Python projects and generating clear reports with score tracking.
 
 ---
 
@@ -61,6 +65,7 @@ It helps developers quickly understand:
 - Security risks
 - Missing tests
 - Overall code health
+- Score trend between multiple analysis runs
 
 ---
 
@@ -73,6 +78,7 @@ CodeLens AI currently supports:
 - Code quality issue detection
 - Security issue detection
 - Code quality and security scoring
+- Score history tracking
 - Test suggestion generation
 - Pytest file generation
 - Automatic pytest execution
@@ -124,7 +130,10 @@ main.py
     |       Generates JSON report
     |
     |-- html_reporter.py
-            Generates HTML report
+    |       Generates HTML report
+    |
+    |-- history_tracker.py
+            Tracks score history across runs
 ```
 
 ---
@@ -147,6 +156,7 @@ Generate tests
 Run tests
 Generate AI explanation
 Generate reports
+Update score history
 Print output
 ```
 
@@ -216,6 +226,42 @@ Grade mapping:
 60 - 74:  C, Needs Improvement
 40 - 59:  D, Poor
 0  - 39:  F, Critical
+```
+
+---
+
+### `codelens/history_tracker.py`
+
+This file tracks project score history over multiple runs.
+
+It generates:
+
+```text
+reports/score_history.json
+reports/score_history.md
+```
+
+It stores:
+
+- Run timestamp
+- Project path
+- Current score
+- Previous score
+- Score change
+- Trend
+- Grade
+- Status
+- Issue counts
+- Test status
+- Report paths
+
+Trend values can be:
+
+```text
+First run for this project
+Improved
+Declined
+Unchanged
 ```
 
 ---
@@ -327,7 +373,7 @@ Use this order during your demo.
 
 Say:
 
-> CodeLens AI is a Python code analysis tool that automatically scans a project, detects code quality and security issues, generates tests, calculates a score, and exports reports in Markdown, JSON, and HTML.
+> CodeLens AI is a Python code analysis tool that automatically scans a project, detects code quality and security issues, generates tests, calculates a score, tracks score history, and exports reports in Markdown, JSON, and HTML.
 
 ---
 
@@ -354,12 +400,12 @@ Explain:
 Run:
 
 ```bash
-python main.py analyze sample_projects/calculator_app --format all
+python main.py analyze sample_projects/calculator_app --format all --skip-ai
 ```
 
 Explain:
 
-> This command analyzes a simple calculator project and generates all report formats.
+> This command analyzes a simple calculator project and generates all report formats. I am using `--skip-ai` here so the demo runs quickly even without depending on an API call.
 
 Expected output includes:
 
@@ -367,11 +413,38 @@ Expected output includes:
 Markdown report generated: reports/codelens_report.md
 JSON report generated: reports/codelens_report.json
 HTML report generated: reports/codelens_report.html
+Score history JSON generated: reports/score_history.json
+Score history Markdown generated: reports/score_history.md
 ```
 
 ---
 
-### Step 4: Open HTML Report
+### Step 4: Run Calculator App Again to Show History
+
+Run the same command again:
+
+```bash
+python main.py analyze sample_projects/calculator_app --format all --skip-ai
+```
+
+Explain:
+
+> Running the same project again updates the score history and compares the latest score with the previous run.
+
+Expected output may include:
+
+```text
+Score History
+----------------------------------------
+Total runs tracked: 2
+Trend: Unchanged
+Previous score: 53/100
+Score change: 0
+```
+
+---
+
+### Step 5: Open HTML Report
 
 Run:
 
@@ -396,17 +469,40 @@ Show sections:
 
 ---
 
-### Step 5: Run Vulnerable App Analysis
+### Step 6: Show Score History Report
 
-Run:
+Open:
 
-```bash
-python main.py analyze sample_projects/vulnerable_app --format all --skip-tests
+```text
+reports/score_history.md
 ```
 
 Explain:
 
-> This project intentionally contains unsafe code so that we can demonstrate the security analyzer.
+> This report tracks previous runs and shows whether the project score improved, declined, or stayed unchanged.
+
+Show:
+
+- Latest run
+- Score
+- Previous score
+- Score change
+- Trend
+- Run history table
+
+---
+
+### Step 7: Run Vulnerable App Analysis
+
+Run:
+
+```bash
+python main.py analyze sample_projects/vulnerable_app --format all --skip-ai --skip-tests
+```
+
+Explain:
+
+> This project intentionally contains unsafe code so that we can demonstrate the security analyzer. I am using `--skip-tests` because this project is mainly for security demonstration.
 
 Expected security issues:
 
@@ -423,7 +519,7 @@ Insecure HTTP URL
 
 ---
 
-### Step 6: Show JSON Report
+### Step 8: Show JSON Report
 
 Open:
 
@@ -437,7 +533,7 @@ Explain:
 
 ---
 
-### Step 7: Show GitHub Actions
+### Step 9: Show GitHub Actions
 
 Open:
 
@@ -447,7 +543,7 @@ Open:
 
 Explain:
 
-> This workflow runs CodeLens AI automatically whenever code is pushed to GitHub or a pull request is opened.
+> This workflow runs CodeLens AI automatically whenever code is pushed to GitHub or a pull request is opened. It also uploads Markdown, JSON, HTML, and score history reports as artifacts.
 
 ---
 
@@ -457,6 +553,12 @@ Explain:
 
 ```bash
 python main.py analyze sample_projects/calculator_app --format all
+```
+
+### Analyze quickly without AI
+
+```bash
+python main.py analyze sample_projects/calculator_app --format all --skip-ai
 ```
 
 ### Generate only HTML report
@@ -483,6 +585,12 @@ python main.py analyze sample_projects/vulnerable_app --skip-tests
 python main.py analyze sample_projects/vulnerable_app --format html --skip-ai --skip-tests
 ```
 
+### Disable score history tracking
+
+```bash
+python main.py analyze sample_projects/calculator_app --no-history
+```
+
 ### Custom output folder
 
 ```bash
@@ -501,13 +609,19 @@ python -m pytest generated_tests -v
 start reports/codelens_report.html
 ```
 
+### Open score history Markdown in VS Code
+
+```bash
+code reports/score_history.md
+```
+
 ---
 
 ## 10. What to Say During Demo
 
 ### Opening
 
-> Today I am presenting CodeLens AI, a Python code analysis and reporting tool. It scans a Python project, detects code quality and security issues, generates pytest suggestions and test files, runs those tests, calculates a score, and creates Markdown, JSON, and HTML reports.
+> Today I am presenting CodeLens AI, a Python code analysis and reporting tool. It scans a Python project, detects code quality and security issues, generates pytest suggestions and test files, runs those tests, calculates a score, tracks score history, and creates Markdown, JSON, and HTML reports.
 
 ---
 
@@ -535,6 +649,12 @@ start reports/codelens_report.html
 
 ---
 
+### While showing score history
+
+> The score history feature stores previous analysis runs and compares the latest score with the earlier score for the same project. This helps track whether the project is improving, declining, or staying unchanged.
+
+---
+
 ### While showing reports
 
 > The Markdown report is human-readable in VS Code, the JSON report is machine-readable for integrations, and the HTML report is useful for demos and future dashboards.
@@ -543,7 +663,7 @@ start reports/codelens_report.html
 
 ### Closing
 
-> The project currently works as a complete static analysis and reporting tool. In the future, I can extend it with better AI-generated tests, pull request comments, trend comparison, and support for larger repositories.
+> The project currently works as a complete static analysis and reporting tool. In the future, I can extend it with better AI-generated tests, pull request comments, dependency vulnerability scanning, and support for larger repositories.
 
 ---
 
@@ -569,7 +689,7 @@ AST stands for Abstract Syntax Tree. It is a tree representation of source code.
 
 **Answer:**
 
-No. CodeLens AI is a lightweight educational and project-level tool. It demonstrates how static analysis, security detection, test generation, scoring, and reporting can be combined. It is not intended to replace mature production tools.
+No. CodeLens AI is a lightweight educational and project-level tool. It demonstrates how static analysis, security detection, test generation, scoring, report generation, and trend tracking can be combined. It is not intended to replace mature production tools.
 
 ---
 
@@ -606,7 +726,30 @@ Then it assigns a grade from A to F.
 
 ---
 
-### Q7. Why did you generate JSON reports?
+### Q7. What does score history tracking do?
+
+**Answer:**
+
+Score history tracking stores the score from each run and compares the latest score with the previous score for the same project. It shows whether the project improved, declined, or stayed unchanged.
+
+---
+
+### Q8. Where is score history stored?
+
+**Answer:**
+
+It is stored in:
+
+```text
+reports/score_history.json
+reports/score_history.md
+```
+
+The JSON file is machine-readable, and the Markdown file is human-readable.
+
+---
+
+### Q9. Why did you generate JSON reports?
 
 **Answer:**
 
@@ -614,7 +757,7 @@ JSON reports make the tool easier to integrate with dashboards, APIs, GitHub Act
 
 ---
 
-### Q8. Why did you generate HTML reports?
+### Q10. Why did you generate HTML reports?
 
 **Answer:**
 
@@ -622,7 +765,7 @@ HTML reports are easier to view in a browser and are useful for demos, presentat
 
 ---
 
-### Q9. How does test generation work?
+### Q11. How does test generation work?
 
 **Answer:**
 
@@ -630,7 +773,7 @@ The tool reads function names and arguments, creates test suggestions, writes py
 
 ---
 
-### Q10. Are the generated tests perfect?
+### Q12. Are the generated tests perfect?
 
 **Answer:**
 
@@ -638,15 +781,15 @@ No. The current test generation is basic. A future improvement is to use AI to g
 
 ---
 
-### Q11. Why did you add CLI options?
+### Q13. Why did you add CLI options?
 
 **Answer:**
 
-CLI options make the project more flexible and professional. Users can choose report format, skip AI, skip tests, and set custom output directories.
+CLI options make the project more flexible and professional. Users can choose report format, skip AI, skip tests, disable history, and set custom output directories.
 
 ---
 
-### Q12. What happens if Groq API key is missing?
+### Q14. What happens if Groq API key is missing?
 
 **Answer:**
 
@@ -660,15 +803,15 @@ This skips AI explanation and still generates reports.
 
 ---
 
-### Q13. What is the role of GitHub Actions?
+### Q15. What is the role of GitHub Actions?
 
 **Answer:**
 
-GitHub Actions automatically runs CodeLens AI when code is pushed or a pull request is opened. It also uploads generated reports as artifacts.
+GitHub Actions automatically runs CodeLens AI when code is pushed or a pull request is opened. It also uploads generated reports and score history files as artifacts.
 
 ---
 
-### Q14. What is the biggest limitation right now?
+### Q16. What is the biggest limitation right now?
 
 **Answer:**
 
@@ -676,11 +819,11 @@ The main limitations are that test generation is basic, security detection is ru
 
 ---
 
-### Q15. What are the next improvements?
+### Q17. What are the next improvements?
 
 **Answer:**
 
-Next improvements can include better AI-generated tests, pull request comments, score history tracking, issue trend comparison, HTML dashboard, and support for larger repositories.
+Next improvements can include better AI-generated tests, pull request comments, dependency vulnerability scanning, issue trend comparison, HTML dashboard, and support for larger repositories.
 
 ---
 
@@ -729,6 +872,7 @@ Instead, focus on:
 - Showing report output
 - Explaining architecture
 - Showing security detection
+- Showing score history
 
 ---
 
@@ -742,12 +886,14 @@ Use this exact order:
 3. Show folder structure
 4. Open main.py
 5. Run calculator app analysis
-6. Open HTML report
-7. Run vulnerable app analysis
-8. Show detected security issues
-9. Open JSON report
-10. Show GitHub Actions workflow
-11. Explain future improvements
+6. Run it again to show score history
+7. Open HTML report
+8. Open score_history.md
+9. Run vulnerable app analysis
+10. Show detected security issues
+11. Open JSON report
+12. Show GitHub Actions workflow
+13. Explain future improvements
 ```
 
 ---
@@ -756,7 +902,7 @@ Use this exact order:
 
 Use this script if you need to present quickly.
 
-> CodeLens AI is a Python code analysis tool that combines static analysis, security checks, test generation, scoring, and reporting.  
+> CodeLens AI is a Python code analysis tool that combines static analysis, security checks, test generation, scoring, score history tracking, and report generation.  
 >
 > The project takes a Python folder as input. It scans all Python files using the AST module and extracts functions, classes, imports, arguments, line numbers, docstrings, and other metadata.  
 >
@@ -770,11 +916,13 @@ Use this script if you need to present quickly.
 >
 > The tool generates Markdown, JSON, and HTML reports. Markdown is useful for reading in VS Code, JSON is useful for integration, and HTML is useful for browser-based demos.  
 >
-> I also added CLI options so users can choose the report format, skip AI explanation, skip tests, or set a custom output directory.  
+> It also tracks score history over multiple runs, so we can see whether a project is improving, declining, or staying unchanged.  
+>
+> I added CLI options so users can choose the report format, skip AI explanation, skip tests, disable history tracking, or set a custom output directory.  
 >
 > The project is integrated with GitHub Actions, so analysis can run automatically on push and pull requests.  
 >
-> Future improvements include better AI-generated tests, pull request comments, score history tracking, and support for larger repositories.
+> Future improvements include better AI-generated tests, pull request comments, dependency vulnerability scanning, issue trend comparison, and support for larger repositories.
 
 ---
 
@@ -798,6 +946,12 @@ Then run:
 python main.py analyze sample_projects/calculator_app --format all --skip-ai
 ```
 
+Run it again:
+
+```bash
+python main.py analyze sample_projects/calculator_app --format all --skip-ai
+```
+
 Then run:
 
 ```bash
@@ -810,7 +964,13 @@ Then open:
 start reports/codelens_report.html
 ```
 
-Make sure the HTML report opens properly.
+Open score history:
+
+```bash
+code reports/score_history.md
+```
+
+Make sure the HTML report and score history open properly.
 
 ---
 
@@ -822,6 +982,7 @@ Completed modules:
 - Code quality analyzer
 - Security analyzer
 - Score calculator
+- Score history tracker
 - Test suggestion generator
 - Pytest writer
 - Pytest runner
@@ -832,6 +993,7 @@ Completed modules:
 - CLI options
 - GitHub Actions workflow
 - README documentation
+- Demo guide
 - Vulnerable sample project
 
 ---
@@ -842,17 +1004,17 @@ Recommended future technical improvements:
 
 1. AI-based test case generation
 2. Pull request comment generation
-3. Score history tracking
-4. Issue trend comparison
-5. More security rules
-6. Dependency vulnerability scanning
-7. HTML dashboard with charts
-8. Support for large repositories
-9. Support for JavaScript or Java
-10. Config file support using `codelens.yml`
+3. More security rules
+4. Dependency vulnerability scanning
+5. Issue trend comparison by issue type
+6. HTML dashboard with charts
+7. Support for large repositories
+8. Support for JavaScript or Java
+9. Config file support using `codelens.yml`
+10. Exporting report summaries as GitHub PR comments
 
 ---
 
 ## 18. Short Closing Statement
 
-> CodeLens AI demonstrates how static analysis, AI explanation, security checks, testing, scoring, and report generation can be combined into one automated developer tool.
+> CodeLens AI demonstrates how static analysis, AI explanation, security checks, testing, scoring, score history tracking, and report generation can be combined into one automated developer tool.
