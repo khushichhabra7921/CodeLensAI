@@ -9,6 +9,7 @@ from codelens.test_writer import generate_pytest_files
 from codelens.test_runner import run_pytest
 from codelens.ai_explainer import generate_ai_explanation
 from codelens.reporter import generate_markdown_report
+from codelens.json_reporter import generate_json_report
 from codelens.score_calculator import calculate_code_score
 
 
@@ -240,7 +241,7 @@ def main():
         test_suggestions,
     )
 
-    report_path = generate_markdown_report(
+    markdown_report_path = generate_markdown_report(
         results,
         all_issues,
         test_suggestions,
@@ -249,6 +250,19 @@ def main():
         ai_explanation,
         code_score,
         security_issues,
+    )
+
+    json_report_path = generate_json_report(
+        results,
+        code_quality_issues,
+        security_issues,
+        all_issues,
+        test_suggestions,
+        generated_test_files,
+        test_run_result,
+        ai_explanation,
+        code_score,
+        project_path,
     )
 
     print_project_summary(
@@ -273,7 +287,8 @@ def main():
     print_generated_tests(generated_test_files, test_run_result)
 
     print()
-    print(f"Markdown report generated: {report_path}")
+    print(f"Markdown report generated: {markdown_report_path}")
+    print(f"JSON report generated: {json_report_path}")
 
 
 if __name__ == "__main__":
