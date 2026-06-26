@@ -1,3 +1,4 @@
+from datetime import datetime
 from html import escape
 from pathlib import Path
 
@@ -35,6 +36,25 @@ def get_severity_class(severity):
     return "severity-low"
 
 
+def get_status_class(status):
+    """
+    Returns a CSS class name for score status.
+    """
+
+    status = str(status).lower()
+
+    if status in ["excellent", "good"]:
+        return "status-good"
+
+    if status in ["needs improvement", "poor"]:
+        return "status-warning"
+
+    if status == "critical":
+        return "status-danger"
+
+    return "status-warning"
+
+
 def get_test_status_label(test_run_result):
     """
     Returns a readable test status.
@@ -63,9 +83,155 @@ def get_test_status_class(test_run_result):
     return "status-fail"
 
 
+def count_by_field(issues, field_name):
+    """
+    Counts issues by category, severity, or type.
+    """
+
+    counts = {}
+
+    for issue in issues:
+        value = issue.get(field_name, "Unknown")
+        counts[value] = counts.get(value, 0) + 1
+
+    return counts
+
+
+def build_metric_card(label, value, helper_text=""):
+    """
+    Builds a dashboard metric card.
+    """
+
+    helper_html = ""
+
+    if helper_text:
+        helper_html = f"<p>{html_escape(helper_text)}</p>"
+
+    return f"""
+    <div class="metric-card">
+        <span>{html_escape(label)}</span>
+        <strong>{html_escape(value)}</strong>
+        {helper_html}
+    </div>
+    """
+
+
+def build_breakdown_bar(label, count, total):
+    """
+    Builds one horizontal bar for a breakdown chart.
+    """
+
+    if total <= 0:
+        percentage = 0
+    else:
+        percentage = round((count / total) * 100, 1)
+
+    return f"""
+    <div class="breakdown-row">
+        <div class="breakdown-label">
+            <span>{html_escape(label)}</span>
+            <strong>{html_escape(count)}</strong>
+        </div>
+        <div class="bar-track">
+            <div class="bar-fill" style="width: {percentage}%"></div>
+        </div>
+        <div class="breakdown-percent">{percentage}%</div>
+    </div>
+    """
+
+
+def build_breakdown_section(title, counts):
+    """
+    Builds a dashboard section with horizontal bars.
+    """
+
+    if not counts:
+        return f"""
+        <div class="dashboard-panel">
+            <h3>{html_escape(title)}</h3>
+            <p class="empty-message">No data available.</p>
+        </div>
+        """
+
+    total = sum(counts.values())
+
+    rows = []
+
+    for label, count in sorted(counts.items(), key=lambda item: item[1], reverse=True):
+        rows.append(build_breakdown_bar(label, count, total))
+
+    return f"""
+    <div class="dashboard-panel">
+        <h3>{html_escape(title)}</h3>
+        {''.join(rows)}
+    </div>
+    """
+
+
+def build_severity_badge(severity):
+    """
+    Builds a severity badge.
+    """
+
+    severity_class = get_severity_class(severity)
+
+    return f"""
+    <span class="severity-badge {severity_class}">
+        {html_escape(severity)}
+    </span>
+    """
+
+
+def build_issue_table(issues, table_id):
+    """
+    Builds a compact issue table.
+    """
+
+    if not issues:
+        return "<p class='empty-message'>No issues found.</p>"
+
+    rows = []
+
+    for issue in issues:
+        rows.append(
+            f"""
+            <tr>
+                <td>{build_severity_badge(issue.get("severity", "Low"))}</td>
+                <td>{html_escape(issue.get("category", ""))}</td>
+                <td>{html_escape(issue.get("type", ""))}</td>
+                <td><code>{html_escape(issue.get("file", ""))}</code></td>
+                <td>{html_escape(issue.get("line", ""))}</td>
+                <td>{html_escape(issue.get("message", ""))}</td>
+                <td>{html_escape(issue.get("suggestion", ""))}</td>
+            </tr>
+            """
+        )
+
+    return f"""
+    <div class="table-wrapper">
+        <table id="{html_escape(table_id)}">
+            <thead>
+                <tr>
+                    <th>Severity</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>File</th>
+                    <th>Line</th>
+                    <th>Message</th>
+                    <th>Suggestion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(rows)}
+            </tbody>
+        </table>
+    </div>
+    """
+
+
 def build_issue_cards(issues):
     """
-    Builds HTML cards for issues.
+    Builds detailed HTML cards for issues.
     """
 
     if not issues:
@@ -84,9 +250,9 @@ def build_issue_cards(issues):
                     <h3>{html_escape(issue.get("type", "Issue"))}</h3>
                     <span class="severity-badge {severity_class}">{severity}</span>
                 </div>
+                <p><strong>Category:</strong> {html_escape(issue.get("category", ""))}</p>
                 <p><strong>File:</strong> <code>{html_escape(issue.get("file", ""))}</code></p>
                 <p><strong>Line:</strong> {html_escape(issue.get("line", ""))}</p>
-                <p><strong>Category:</strong> {html_escape(issue.get("category", ""))}</p>
                 <p><strong>Message:</strong> {html_escape(issue.get("message", ""))}</p>
                 <p><strong>Suggestion:</strong> {html_escape(issue.get("suggestion", ""))}</p>
             </div>
@@ -107,6 +273,15 @@ def build_file_analysis(scan_results):
     sections = []
 
     for file_result in scan_results:
+        parse_error_html = ""
+
+        if file_result.get("parse_error"):
+            parse_error_html = f"""
+            <div class="alert-box">
+                Parse error: {html_escape(file_result.get("parse_error"))}
+            </div>
+            """
+
         if file_result["imports"]:
             imports_html = "".join(
                 f"<li><code>{html_escape(item)}</code></li>"
@@ -122,15 +297,19 @@ def build_file_analysis(scan_results):
                 arguments = ", ".join(function["arguments"])
                 has_docstring = "Yes" if function["has_docstring"] else "No"
                 has_division = "Yes" if function["has_division"] else "No"
+                is_async = "Yes" if function.get("is_async") else "No"
 
                 functions_html += f"""
                 <div class="mini-card">
                     <h4><code>{html_escape(function["name"])}({html_escape(arguments)})</code></h4>
-                    <p><strong>Line:</strong> {html_escape(function["line_number"])}</p>
-                    <p><strong>Lines of code:</strong> {html_escape(function["line_count"])}</p>
-                    <p><strong>Arguments count:</strong> {html_escape(function["argument_count"])}</p>
-                    <p><strong>Docstring:</strong> {has_docstring}</p>
-                    <p><strong>Uses division:</strong> {has_division}</p>
+                    <div class="mini-grid">
+                        <p><strong>Line:</strong> {html_escape(function["line_number"])}</p>
+                        <p><strong>Lines:</strong> {html_escape(function["line_count"])}</p>
+                        <p><strong>Arguments:</strong> {html_escape(function["argument_count"])}</p>
+                        <p><strong>Docstring:</strong> {has_docstring}</p>
+                        <p><strong>Uses division:</strong> {has_division}</p>
+                        <p><strong>Async:</strong> {is_async}</p>
+                    </div>
                 </div>
                 """
         else:
@@ -145,8 +324,11 @@ def build_file_analysis(scan_results):
                 classes_html += f"""
                 <div class="mini-card">
                     <h4><code>{html_escape(class_info["name"])}</code></h4>
-                    <p><strong>Line:</strong> {html_escape(class_info["line_number"])}</p>
-                    <p><strong>Docstring:</strong> {has_docstring}</p>
+                    <div class="mini-grid">
+                        <p><strong>Line:</strong> {html_escape(class_info["line_number"])}</p>
+                        <p><strong>Lines:</strong> {html_escape(class_info.get("line_count", ""))}</p>
+                        <p><strong>Docstring:</strong> {has_docstring}</p>
+                    </div>
                 </div>
                 """
         else:
@@ -156,9 +338,10 @@ def build_file_analysis(scan_results):
             f"""
             <div class="file-card">
                 <h3>{html_escape(file_result["file"])}</h3>
+                {parse_error_html}
 
                 <h4>Imports</h4>
-                <ul>
+                <ul class="import-list">
                     {imports_html}
                 </ul>
 
@@ -224,6 +407,424 @@ def build_generated_files_html(generated_test_files, test_run_result):
     return "<li>No pytest files generated.</li>"
 
 
+def build_navigation():
+    """
+    Builds dashboard navigation.
+    """
+
+    return """
+    <nav class="top-nav">
+        <a href="#summary">Summary</a>
+        <a href="#score">Score</a>
+        <a href="#breakdowns">Breakdowns</a>
+        <a href="#all-issues">All Issues</a>
+        <a href="#quality">Quality</a>
+        <a href="#security">Security</a>
+        <a href="#dependency">Dependency</a>
+        <a href="#files">Files</a>
+        <a href="#tests">Tests</a>
+        <a href="#ai">AI</a>
+    </nav>
+    """
+
+
+def build_styles():
+    """
+    Returns dashboard CSS.
+    """
+
+    return """
+    :root {
+        --bg: #f4f7fb;
+        --card: #ffffff;
+        --text: #111827;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --critical: #7f1d1d;
+        --high: #dc2626;
+        --medium: #f59e0b;
+        --low: #2563eb;
+        --good: #15803d;
+        --warning: #b45309;
+        --danger: #b91c1c;
+        --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+
+    header {
+        background: linear-gradient(135deg, #111827, #1e3a8a, #2563eb);
+        color: white;
+        padding: 42px 60px 34px;
+    }
+
+    header h1 {
+        margin: 0;
+        font-size: 44px;
+        letter-spacing: -1px;
+    }
+
+    header p {
+        margin-top: 12px;
+        font-size: 17px;
+        opacity: 0.95;
+    }
+
+    .top-nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 24px;
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+    }
+
+    .top-nav a {
+        color: var(--primary-dark);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 14px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #eff6ff;
+        white-space: nowrap;
+    }
+
+    .top-nav a:hover {
+        background: #dbeafe;
+    }
+
+    main {
+        max-width: 1280px;
+        margin: 30px auto;
+        padding: 0 20px 60px;
+    }
+
+    section {
+        background: var(--card);
+        border-radius: 18px;
+        padding: 28px;
+        margin-bottom: 28px;
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(229, 231, 235, 0.8);
+    }
+
+    h2 {
+        margin-top: 0;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 12px;
+        letter-spacing: -0.3px;
+    }
+
+    h3 {
+        margin-top: 0;
+    }
+
+    code {
+        background: #eef2ff;
+        color: #1e40af;
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 13px;
+    }
+
+    pre {
+        background: #111827;
+        color: #e5e7eb;
+        padding: 18px;
+        border-radius: 12px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        line-height: 1.5;
+    }
+
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 16px;
+    }
+
+    .metric-card {
+        background: linear-gradient(180deg, #ffffff, #f9fafb);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+    }
+
+    .metric-card span {
+        display: block;
+        font-size: 14px;
+        color: var(--muted);
+        font-weight: 700;
+    }
+
+    .metric-card strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 30px;
+        color: var(--text);
+    }
+
+    .metric-card p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .score-layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 24px;
+        align-items: stretch;
+    }
+
+    .score-main {
+        background: #111827;
+        color: white;
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .score-number {
+        font-size: 62px;
+        font-weight: 800;
+        letter-spacing: -2px;
+    }
+
+    .score-grade {
+        margin-top: 8px;
+        font-size: 28px;
+        font-weight: 800;
+    }
+
+    .score-status {
+        display: inline-block;
+        margin-top: 14px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        font-weight: 700;
+    }
+
+    .score-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 14px;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 18px;
+    }
+
+    .dashboard-panel {
+        border: 1px solid var(--border);
+        background: #f9fafb;
+        border-radius: 16px;
+        padding: 20px;
+    }
+
+    .breakdown-row {
+        margin-bottom: 14px;
+    }
+
+    .breakdown-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+
+    .bar-track {
+        width: 100%;
+        height: 10px;
+        background: #e5e7eb;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), #60a5fa);
+        border-radius: 999px;
+    }
+
+    .breakdown-percent {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--muted);
+        text-align: right;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 920px;
+        background: white;
+    }
+
+    th {
+        background: #f3f4f6;
+        color: #374151;
+        text-align: left;
+        padding: 13px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    td {
+        padding: 13px;
+        border-top: 1px solid var(--border);
+        vertical-align: top;
+        font-size: 14px;
+    }
+
+    .issue-card,
+    .file-card,
+    .mini-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 18px;
+        background: #f9fafb;
+    }
+
+    .issue-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .severity-badge {
+        color: white;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        display: inline-block;
+    }
+
+    .severity-critical {
+        background: var(--critical);
+    }
+
+    .severity-high {
+        background: var(--high);
+    }
+
+    .severity-medium {
+        background: var(--medium);
+    }
+
+    .severity-low {
+        background: var(--low);
+    }
+
+    .status-pass,
+    .status-good {
+        color: var(--good);
+        font-weight: 800;
+    }
+
+    .status-fail,
+    .status-danger {
+        color: var(--danger);
+        font-weight: 800;
+    }
+
+    .status-skip,
+    .status-warning {
+        color: var(--warning);
+        font-weight: 800;
+    }
+
+    .empty-message {
+        color: var(--muted);
+        font-style: italic;
+    }
+
+    .alert-box {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 14px;
+        font-weight: 700;
+    }
+
+    .mini-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 4px 16px;
+    }
+
+    .import-list {
+        columns: 2;
+    }
+
+    footer {
+        text-align: center;
+        padding: 24px;
+        color: var(--muted);
+    }
+
+    @media (max-width: 800px) {
+        header {
+            padding: 32px 24px;
+        }
+
+        header h1 {
+            font-size: 34px;
+        }
+
+        .score-layout {
+            grid-template-columns: 1fr;
+        }
+
+        section {
+            padding: 22px;
+        }
+
+        .import-list {
+            columns: 1;
+        }
+    }
+    """
+
+
 def generate_html_report(
     scan_results,
     code_quality_issues,
@@ -239,7 +840,7 @@ def generate_html_report(
     output_path="reports/codelens_report.html",
 ):
     """
-    Generates a browser-friendly HTML report.
+    Generates a browser-friendly HTML dashboard report.
     """
 
     output_path = Path(output_path)
@@ -250,6 +851,10 @@ def generate_html_report(
     total_functions = sum(len(file_result["functions"]) for file_result in scan_results)
     total_classes = sum(len(file_result["classes"]) for file_result in scan_results)
 
+    severity_counts = count_by_field(all_issues, "severity")
+    category_counts = count_by_field(all_issues, "category")
+    type_counts = count_by_field(all_issues, "type")
+
     generated_files_html = build_generated_files_html(
         generated_test_files,
         test_run_result,
@@ -258,265 +863,120 @@ def generate_html_report(
     test_status = get_test_status_label(test_run_result)
     test_status_class = get_test_status_class(test_run_result)
 
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    styles = build_styles()
+    navigation = build_navigation()
+
+    score_status_class = get_status_class(code_score["status"])
+
+    metric_cards = "".join(
+        [
+            build_metric_card("Files scanned", total_files),
+            build_metric_card("Imports found", total_imports),
+            build_metric_card("Functions found", total_functions),
+            build_metric_card("Classes found", total_classes),
+            build_metric_card("Total issues", len(all_issues)),
+            build_metric_card("Code quality issues", len(code_quality_issues)),
+            build_metric_card("Security issues", len(security_issues)),
+            build_metric_card("Dependency issues", len(dependency_issues)),
+            build_metric_card("Test suggestions", len(test_suggestions)),
+            build_metric_card("Pytest files", len(generated_test_files)),
+            build_metric_card("Test run", test_status),
+        ]
+    )
+
+    score_detail_cards = "".join(
+        [
+            build_metric_card("Critical issues", code_score["issue_summary"]["Critical"]),
+            build_metric_card("High issues", code_score["issue_summary"]["High"]),
+            build_metric_card("Medium issues", code_score["issue_summary"]["Medium"]),
+            build_metric_card("Low issues", code_score["issue_summary"]["Low"]),
+            build_metric_card("Total issues", code_score["total_issues"]),
+        ]
+    )
+
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CodeLens AI Report</title>
+    <title>CodeLens AI Dashboard Report</title>
     <style>
-        body {{
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f4f6f8;
-            color: #1f2937;
-        }}
-
-        header {{
-            background: linear-gradient(135deg, #111827, #2563eb);
-            color: white;
-            padding: 40px 60px;
-        }}
-
-        header h1 {{
-            margin: 0;
-            font-size: 42px;
-        }}
-
-        header p {{
-            margin-top: 10px;
-            font-size: 18px;
-            opacity: 0.95;
-        }}
-
-        main {{
-            max-width: 1200px;
-            margin: 30px auto;
-            padding: 0 20px 50px;
-        }}
-
-        section {{
-            background: white;
-            border-radius: 14px;
-            padding: 28px;
-            margin-bottom: 28px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-        }}
-
-        h2 {{
-            margin-top: 0;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 10px;
-        }}
-
-        code {{
-            background: #eef2ff;
-            color: #1e40af;
-            padding: 2px 6px;
-            border-radius: 5px;
-        }}
-
-        pre {{
-            background: #111827;
-            color: #e5e7eb;
-            padding: 18px;
-            border-radius: 10px;
-            overflow-x: auto;
-            white-space: pre-wrap;
-        }}
-
-        .summary-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            gap: 16px;
-        }}
-
-        .summary-card {{
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 18px;
-        }}
-
-        .summary-card span {{
-            display: block;
-            font-size: 14px;
-            color: #6b7280;
-        }}
-
-        .summary-card strong {{
-            display: block;
-            margin-top: 8px;
-            font-size: 28px;
-            color: #111827;
-        }}
-
-        .score-box {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            align-items: center;
-        }}
-
-        .score-main {{
-            background: #111827;
-            color: white;
-            border-radius: 18px;
-            padding: 28px;
-            min-width: 220px;
-            text-align: center;
-        }}
-
-        .score-main .score {{
-            font-size: 52px;
-            font-weight: bold;
-        }}
-
-        .score-main .grade {{
-            font-size: 24px;
-            margin-top: 8px;
-        }}
-
-        .score-details {{
-            flex: 1;
-            min-width: 240px;
-        }}
-
-        .issue-card,
-        .file-card,
-        .mini-card {{
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 18px;
-            margin-bottom: 18px;
-            background: #f9fafb;
-        }}
-
-        .issue-header {{
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: center;
-        }}
-
-        .severity-badge {{
-            color: white;
-            padding: 7px 12px;
-            border-radius: 999px;
-            font-size: 13px;
-            font-weight: bold;
-        }}
-
-        .severity-critical {{
-            background: #7f1d1d;
-        }}
-
-        .severity-high {{
-            background: #dc2626;
-        }}
-
-        .severity-medium {{
-            background: #f59e0b;
-        }}
-
-        .severity-low {{
-            background: #2563eb;
-        }}
-
-        .status-pass {{
-            color: #15803d;
-            font-weight: bold;
-        }}
-
-        .status-fail {{
-            color: #dc2626;
-            font-weight: bold;
-        }}
-
-        .status-skip {{
-            color: #92400e;
-            font-weight: bold;
-        }}
-
-        .empty-message {{
-            color: #6b7280;
-            font-style: italic;
-        }}
-
-        footer {{
-            text-align: center;
-            padding: 24px;
-            color: #6b7280;
-        }}
+        {styles}
     </style>
 </head>
 <body>
     <header>
-        <h1>CodeLens AI Report</h1>
+        <h1>CodeLens AI Dashboard</h1>
         <p>Project analyzed: <strong>{html_escape(project_path)}</strong></p>
+        <p>Generated at: <strong>{html_escape(generated_at)}</strong></p>
     </header>
 
+    {navigation}
+
     <main>
-        <section>
+        <section id="summary">
             <h2>Project Summary</h2>
-            <div class="summary-grid">
-                <div class="summary-card"><span>Files scanned</span><strong>{total_files}</strong></div>
-                <div class="summary-card"><span>Imports found</span><strong>{total_imports}</strong></div>
-                <div class="summary-card"><span>Functions found</span><strong>{total_functions}</strong></div>
-                <div class="summary-card"><span>Classes found</span><strong>{total_classes}</strong></div>
-                <div class="summary-card"><span>Total issues</span><strong>{len(all_issues)}</strong></div>
-                <div class="summary-card"><span>Code quality issues</span><strong>{len(code_quality_issues)}</strong></div>
-                <div class="summary-card"><span>Security issues</span><strong>{len(security_issues)}</strong></div>
-                <div class="summary-card"><span>Dependency issues</span><strong>{len(dependency_issues)}</strong></div>
-                <div class="summary-card"><span>Test suggestions</span><strong>{len(test_suggestions)}</strong></div>
-                <div class="summary-card"><span>Pytest files</span><strong>{len(generated_test_files)}</strong></div>
-                <div class="summary-card"><span>Test run</span><strong class="{test_status_class}">{test_status}</strong></div>
+            <div class="metric-grid">
+                {metric_cards}
             </div>
         </section>
 
-        <section>
+        <section id="score">
             <h2>Code Quality, Security, and Dependency Score</h2>
-            <div class="score-box">
+            <div class="score-layout">
                 <div class="score-main">
-                    <div class="score">{html_escape(code_score["score"])}/100</div>
-                    <div class="grade">Grade {html_escape(code_score["grade"])}</div>
-                    <div>{html_escape(code_score["status"])}</div>
+                    <div class="score-number">{html_escape(code_score["score"])}/100</div>
+                    <div class="score-grade">Grade {html_escape(code_score["grade"])}</div>
+                    <div class="score-status {score_status_class}">
+                        {html_escape(code_score["status"])}
+                    </div>
                 </div>
+
                 <div class="score-details">
-                    <p><strong>Critical issues:</strong> {html_escape(code_score["issue_summary"]["Critical"])}</p>
-                    <p><strong>High issues:</strong> {html_escape(code_score["issue_summary"]["High"])}</p>
-                    <p><strong>Medium issues:</strong> {html_escape(code_score["issue_summary"]["Medium"])}</p>
-                    <p><strong>Low issues:</strong> {html_escape(code_score["issue_summary"]["Low"])}</p>
-                    <p><strong>Total issues:</strong> {html_escape(code_score["total_issues"])}</p>
+                    {score_detail_cards}
                 </div>
             </div>
         </section>
 
-        <section>
+        <section id="breakdowns">
+            <h2>Issue Breakdowns</h2>
+            <div class="dashboard-grid">
+                {build_breakdown_section("By Severity", severity_counts)}
+                {build_breakdown_section("By Category", category_counts)}
+                {build_breakdown_section("By Issue Type", type_counts)}
+            </div>
+        </section>
+
+        <section id="all-issues">
+            <h2>All Issues</h2>
+            {build_issue_table(all_issues, "all-issues-table")}
+        </section>
+
+        <section id="quality">
             <h2>Code Quality Issues</h2>
             {build_issue_cards(code_quality_issues)}
         </section>
 
-        <section>
+        <section id="security">
             <h2>Security Issues</h2>
             {build_issue_cards(security_issues)}
         </section>
 
-        <section>
+        <section id="dependency">
             <h2>Dependency Issues</h2>
             {build_issue_cards(dependency_issues)}
         </section>
 
-        <section>
+        <section id="files">
             <h2>Detailed File Analysis</h2>
             {build_file_analysis(scan_results)}
         </section>
 
-        <section>
+        <section id="tests">
             <h2>Test Suggestions</h2>
             {build_test_suggestions(test_suggestions)}
-        </section>
 
-        <section>
             <h2>Generated Pytest Files</h2>
             <ul>
                 {generated_files_html}
@@ -534,7 +994,7 @@ def generate_html_report(
             <pre>{html_escape(test_run_result.get("stderr", ""))}</pre>
         </section>
 
-        <section>
+        <section id="ai">
             <h2>AI Codebase Explanation</h2>
             <pre>{html_escape(ai_explanation)}</pre>
         </section>
