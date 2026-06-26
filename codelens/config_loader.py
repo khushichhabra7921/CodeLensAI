@@ -14,6 +14,7 @@ DEFAULT_CONFIG = {
     "reports": {
         "format": "all",
         "output_dir": "reports",
+        "generate_pr_comment": True,
     },
     "analysis": {
         "skip_ai": False,

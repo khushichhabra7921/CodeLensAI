@@ -4,6 +4,7 @@ project:
 reports:
   format: all
   output_dir: reports
+  generate_pr_comment: true
 
 analysis:
   skip_ai: true

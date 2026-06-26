@@ -14,6 +14,7 @@ from codelens.json_reporter import generate_json_report
 from codelens.html_reporter import generate_html_report
 from codelens.history_tracker import update_score_history
 from codelens.issue_trend_tracker import update_issue_trends
+from codelens.pr_commenter import generate_pr_comment
 from codelens.score_calculator import calculate_code_score
 from codelens.config_loader import (
     load_config,
@@ -113,6 +114,20 @@ def parse_arguments():
         action="store_true",
         default=None,
         help="Force issue trend tracking even if config disables it.",
+    )
+
+    parser.add_argument(
+        "--no-pr-comment",
+        action="store_true",
+        default=None,
+        help="Do not generate PR comment Markdown.",
+    )
+
+    parser.add_argument(
+        "--generate-pr-comment",
+        action="store_true",
+        default=None,
+        help="Force PR comment Markdown generation even if config disables it.",
     )
 
     parser.add_argument(
@@ -239,6 +254,22 @@ def resolve_options(args):
     else:
         track_issue_trends = config_track_issue_trends
 
+    config_generate_pr_comment = bool(
+        get_config_value(
+            config,
+            "reports",
+            "generate_pr_comment",
+            True,
+        )
+    )
+
+    if args.generate_pr_comment:
+        generate_pr_comment_enabled = True
+    elif args.no_pr_comment:
+        generate_pr_comment_enabled = False
+    else:
+        generate_pr_comment_enabled = config_generate_pr_comment
+
     rules_config = config.get("rules", {})
     ignore_config = config.get("ignore", {})
 
@@ -251,6 +282,7 @@ def resolve_options(args):
         "skip_tests": skip_tests,
         "track_history": track_history,
         "track_issue_trends": track_issue_trends,
+        "generate_pr_comment": generate_pr_comment_enabled,
         "rules_config": rules_config,
         "ignore_config": ignore_config,
     }
@@ -311,6 +343,7 @@ def print_runtime_options(options):
     print(f"Skip tests: {options['skip_tests']}")
     print(f"Track history: {options['track_history']}")
     print(f"Track issue trends: {options['track_issue_trends']}")
+    print(f"Generate PR comment: {options['generate_pr_comment']}")
     print(f"Check security: {options['rules_config'].get('check_security', True)}")
     print(f"Check dependencies: {options['rules_config'].get('check_dependencies', True)}")
     print(f"Max function lines: {options['rules_config'].get('max_function_lines', 30)}")
@@ -525,6 +558,9 @@ def print_generated_reports(report_paths):
     if "issue_trends_markdown" in report_paths:
         print(f"Issue trends Markdown generated: {report_paths['issue_trends_markdown']}")
 
+    if "pr_comment" in report_paths:
+        print(f"PR comment Markdown generated: {report_paths['pr_comment']}")
+
 
 def print_history_summary(history_summary):
     """
@@ -715,6 +751,26 @@ def main():
 
         report_paths["issue_trends_json"] = issue_trend_summary["history_json_path"]
         report_paths["issue_trends_markdown"] = issue_trend_summary["history_markdown_path"]
+
+    if options["generate_pr_comment"]:
+        pr_comment_path = generate_pr_comment(
+            project_path,
+            results,
+            code_quality_issues,
+            security_issues,
+            dependency_issues,
+            all_issues,
+            code_score,
+            test_suggestions,
+            generated_test_files,
+            test_run_result,
+            history_summary,
+            issue_trend_summary,
+            report_paths,
+            output_path=output_dir / "pr_comment.md",
+        )
+
+        report_paths["pr_comment"] = pr_comment_path
 
     print_project_summary(
         results,
