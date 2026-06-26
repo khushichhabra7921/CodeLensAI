@@ -6,7 +6,7 @@ This guide helps you present CodeLens AI confidently to a faculty mentor, projec
 
 ## 1. One-Line Project Introduction
 
-CodeLens AI is a Python code analysis tool that scans a project, detects code quality and security issues, generates test suggestions, creates pytest tests, calculates a quality score, tracks score history, and exports Markdown, JSON, and HTML reports.
+CodeLens AI is a Python code analysis tool that scans a project, detects code quality and security issues, generates test suggestions, creates pytest tests, calculates a quality score, tracks score history, supports config files, and exports Markdown, JSON, and HTML reports.
 
 ---
 
@@ -26,6 +26,11 @@ It takes a Python project as input and automatically checks:
 - Whether generated tests pass
 - What overall score the project deserves
 - Whether the score improved, declined, or stayed unchanged compared to previous runs
+
+It can be controlled using:
+
+- CLI options
+- A root-level `codelens.yml` config file
 
 Then it creates reports that can be viewed in:
 
@@ -49,8 +54,9 @@ Manual review can be:
 - Difficult for beginners
 - Hard to automate in small projects
 - Difficult to compare over time
+- Hard to standardize across multiple runs
 
-CodeLens AI solves this by automatically analyzing Python projects and generating clear reports with score tracking.
+CodeLens AI solves this by automatically analyzing Python projects and generating clear reports with scoring, history tracking, and configuration support.
 
 ---
 
@@ -66,6 +72,7 @@ It helps developers quickly understand:
 - Missing tests
 - Overall code health
 - Score trend between multiple analysis runs
+- Reusable project settings through `codelens.yml`
 
 ---
 
@@ -87,6 +94,7 @@ CodeLens AI currently supports:
 - JSON report generation
 - HTML report generation
 - CLI options
+- Config file support using `codelens.yml`
 - GitHub Actions automation
 
 ---
@@ -98,6 +106,9 @@ User Command
     |
     v
 main.py
+    |
+    |-- config_loader.py
+    |       Loads codelens.yml and merges config with CLI options
     |
     |-- scanner.py
     |       Scans Python files and extracts imports, functions, classes, and metadata
@@ -148,6 +159,8 @@ It controls the full workflow:
 
 ```text
 Parse CLI arguments
+Load codelens.yml config
+Resolve final runtime options
 Scan project
 Analyze code quality
 Analyze security
@@ -158,6 +171,54 @@ Generate AI explanation
 Generate reports
 Update score history
 Print output
+```
+
+---
+
+### `codelens/config_loader.py`
+
+This file loads the config file:
+
+```text
+codelens.yml
+```
+
+It handles:
+
+- Default config values
+- YAML parsing
+- Deep merging user config with defaults
+- Config validation
+- Report format normalization
+
+It makes the tool easier to use because users can define default settings once instead of typing long commands every time.
+
+---
+
+### `codelens.yml`
+
+This is the project-level configuration file.
+
+Example:
+
+```yaml
+project:
+  default_path: sample_projects/calculator_app
+
+reports:
+  format: all
+  output_dir: reports
+
+analysis:
+  skip_ai: true
+  skip_tests: false
+  track_history: true
+
+rules:
+  max_function_lines: 30
+  max_arguments: 5
+  check_security: true
+  allow_http_urls: false
 ```
 
 ---
@@ -188,6 +249,14 @@ This file detects code quality issues such as:
 - Too many arguments
 - Long functions
 
+It also uses config values such as:
+
+```yaml
+rules:
+  max_function_lines: 30
+  max_arguments: 5
+```
+
 ---
 
 ### `codelens/security_analyzer.py`
@@ -202,6 +271,14 @@ This file detects common security issues such as:
 - `yaml.load()` without SafeLoader
 - Hardcoded secrets
 - Insecure HTTP URLs
+
+It can be controlled using config:
+
+```yaml
+rules:
+  check_security: true
+  allow_http_urls: false
+```
 
 ---
 
@@ -308,7 +385,14 @@ It returns:
 
 This file uses Groq API to generate an AI explanation of the analyzed codebase.
 
-If the API key is missing, the project can still run using:
+If the API key is missing, the project can still run using config:
+
+```yaml
+analysis:
+  skip_ai: true
+```
+
+or CLI:
 
 ```bash
 python main.py analyze sample_projects/calculator_app --skip-ai
@@ -373,13 +457,13 @@ Use this order during your demo.
 
 Say:
 
-> CodeLens AI is a Python code analysis tool that automatically scans a project, detects code quality and security issues, generates tests, calculates a score, tracks score history, and exports reports in Markdown, JSON, and HTML.
+> CodeLens AI is a Python code analysis tool that automatically scans a project, detects code quality and security issues, generates tests, calculates a score, tracks score history, supports config files, and exports reports in Markdown, JSON, and HTML.
 
 ---
 
 ### Step 2: Show the Project Structure
 
-Show these folders:
+Show these files and folders:
 
 ```text
 codelens/
@@ -387,44 +471,74 @@ sample_projects/
 generated_tests/
 reports/
 .github/workflows/
+codelens.yml
 ```
 
 Explain:
 
-> The `codelens` folder contains the actual tool logic. The `sample_projects` folder contains example projects. The `reports` folder stores generated reports. The `.github/workflows` folder contains GitHub Actions automation.
+> The `codelens` folder contains the actual tool logic. The `sample_projects` folder contains example projects. The `reports` folder stores generated reports. The `.github/workflows` folder contains GitHub Actions automation. The `codelens.yml` file stores default configuration.
 
 ---
 
-### Step 3: Run Calculator App Analysis
+### Step 3: Show the Config File
+
+Open:
+
+```text
+codelens.yml
+```
+
+Explain:
+
+> This config file allows users to set default project path, report format, output folder, AI behavior, test behavior, history tracking, and analysis rule thresholds.
+
+Point out:
+
+```yaml
+project:
+  default_path: sample_projects/calculator_app
+
+analysis:
+  skip_ai: true
+
+rules:
+  max_function_lines: 30
+  max_arguments: 5
+```
+
+---
+
+### Step 4: Run Analysis Using Config Only
 
 Run:
 
 ```bash
-python main.py analyze sample_projects/calculator_app --format all --skip-ai
+python main.py analyze
 ```
 
 Explain:
 
-> This command analyzes a simple calculator project and generates all report formats. I am using `--skip-ai` here so the demo runs quickly even without depending on an API call.
+> I do not need to pass the project path here because CodeLens AI reads it from `codelens.yml`.
 
 Expected output includes:
 
 ```text
-Markdown report generated: reports/codelens_report.md
-JSON report generated: reports/codelens_report.json
-HTML report generated: reports/codelens_report.html
-Score history JSON generated: reports/score_history.json
-Score history Markdown generated: reports/score_history.md
+Runtime Options
+----------------------------------------
+Project path: sample_projects/calculator_app
+Report format: all
+Output directory: reports
+Skip AI: True
 ```
 
 ---
 
-### Step 4: Run Calculator App Again to Show History
+### Step 5: Run Calculator App Again to Show History
 
-Run the same command again:
+Run:
 
 ```bash
-python main.py analyze sample_projects/calculator_app --format all --skip-ai
+python main.py analyze
 ```
 
 Explain:
@@ -444,7 +558,7 @@ Score change: 0
 
 ---
 
-### Step 5: Open HTML Report
+### Step 6: Open HTML Report
 
 Run:
 
@@ -469,7 +583,7 @@ Show sections:
 
 ---
 
-### Step 6: Show Score History Report
+### Step 7: Show Score History Report
 
 Open:
 
@@ -492,17 +606,17 @@ Show:
 
 ---
 
-### Step 7: Run Vulnerable App Analysis
+### Step 8: Run Vulnerable App Using CLI Override
 
 Run:
 
 ```bash
-python main.py analyze sample_projects/vulnerable_app --format all --skip-ai --skip-tests
+python main.py analyze sample_projects/vulnerable_app --format html --skip-tests
 ```
 
 Explain:
 
-> This project intentionally contains unsafe code so that we can demonstrate the security analyzer. I am using `--skip-tests` because this project is mainly for security demonstration.
+> Here I override the config file from the command line. The config file default project is calculator app, but this command analyzes the vulnerable app instead.
 
 Expected security issues:
 
@@ -519,7 +633,7 @@ Insecure HTTP URL
 
 ---
 
-### Step 8: Show JSON Report
+### Step 9: Show JSON Report
 
 Open:
 
@@ -533,7 +647,7 @@ Explain:
 
 ---
 
-### Step 9: Show GitHub Actions
+### Step 10: Show GitHub Actions
 
 Open:
 
@@ -543,22 +657,40 @@ Open:
 
 Explain:
 
-> This workflow runs CodeLens AI automatically whenever code is pushed to GitHub or a pull request is opened. It also uploads Markdown, JSON, HTML, and score history reports as artifacts.
+> This workflow runs CodeLens AI automatically whenever code is pushed to GitHub or a pull request is opened. It uses the `codelens.yml` config and uploads Markdown, JSON, HTML, and score history reports as artifacts.
 
 ---
 
 ## 9. Useful Commands
 
-### Analyze and generate all reports
+### Analyze using config
+
+```bash
+python main.py analyze
+```
+
+### Analyze using a specific config file
+
+```bash
+python main.py analyze --config codelens.yml
+```
+
+### Analyze calculator app directly
+
+```bash
+python main.py analyze sample_projects/calculator_app
+```
+
+### Analyze vulnerable app
+
+```bash
+python main.py analyze sample_projects/vulnerable_app --skip-tests
+```
+
+### Generate all reports
 
 ```bash
 python main.py analyze sample_projects/calculator_app --format all
-```
-
-### Analyze quickly without AI
-
-```bash
-python main.py analyze sample_projects/calculator_app --format all --skip-ai
 ```
 
 ### Generate only HTML report
@@ -573,22 +705,34 @@ python main.py analyze sample_projects/calculator_app --format html
 python main.py analyze sample_projects/calculator_app --skip-ai
 ```
 
+### Force AI explanation
+
+```bash
+python main.py analyze sample_projects/calculator_app --use-ai
+```
+
 ### Skip test generation and pytest
 
 ```bash
 python main.py analyze sample_projects/vulnerable_app --skip-tests
 ```
 
-### Skip both AI and tests
+### Force tests to run
 
 ```bash
-python main.py analyze sample_projects/vulnerable_app --format html --skip-ai --skip-tests
+python main.py analyze sample_projects/calculator_app --run-tests
 ```
 
 ### Disable score history tracking
 
 ```bash
 python main.py analyze sample_projects/calculator_app --no-history
+```
+
+### Force score history tracking
+
+```bash
+python main.py analyze sample_projects/calculator_app --track-history
 ```
 
 ### Custom output folder
@@ -621,7 +765,13 @@ code reports/score_history.md
 
 ### Opening
 
-> Today I am presenting CodeLens AI, a Python code analysis and reporting tool. It scans a Python project, detects code quality and security issues, generates pytest suggestions and test files, runs those tests, calculates a score, tracks score history, and creates Markdown, JSON, and HTML reports.
+> Today I am presenting CodeLens AI, a Python code analysis and reporting tool. It scans a Python project, detects code quality and security issues, generates pytest suggestions and test files, runs those tests, calculates a score, tracks score history, supports config files, and creates Markdown, JSON, and HTML reports.
+
+---
+
+### While showing config
+
+> The `codelens.yml` file stores default settings like project path, report format, output directory, whether AI should be skipped, whether tests should run, whether history should be tracked, and rule thresholds such as maximum function length and maximum arguments.
 
 ---
 
@@ -633,13 +783,13 @@ code reports/score_history.md
 
 ### While showing analyzer
 
-> The analyzer applies rule-based checks for maintainability issues like missing docstrings, long functions, too many arguments, and possible division-by-zero problems.
+> The analyzer applies rule-based checks for maintainability issues like missing docstrings, long functions, too many arguments, and possible division-by-zero problems. These thresholds can now be changed from the config file.
 
 ---
 
 ### While showing security analyzer
 
-> The security analyzer detects risky patterns such as eval, exec, os.system, shell=True, pickle loading, unsafe YAML loading, hardcoded secrets, and insecure HTTP URLs.
+> The security analyzer detects risky patterns such as eval, exec, os.system, shell=True, pickle loading, unsafe YAML loading, hardcoded secrets, and insecure HTTP URLs. Security checks can also be enabled or disabled from config.
 
 ---
 
@@ -663,7 +813,7 @@ code reports/score_history.md
 
 ### Closing
 
-> The project currently works as a complete static analysis and reporting tool. In the future, I can extend it with better AI-generated tests, pull request comments, dependency vulnerability scanning, and support for larger repositories.
+> The project currently works as a complete static analysis and reporting tool. In the future, I can extend it with better AI-generated tests, pull request comments, dependency vulnerability scanning, issue trend comparison, and support for larger repositories.
 
 ---
 
@@ -685,15 +835,31 @@ AST stands for Abstract Syntax Tree. It is a tree representation of source code.
 
 ---
 
-### Q3. Is this a replacement for tools like SonarQube or Bandit?
+### Q3. Why did you add config file support?
 
 **Answer:**
 
-No. CodeLens AI is a lightweight educational and project-level tool. It demonstrates how static analysis, security detection, test generation, scoring, report generation, and trend tracking can be combined. It is not intended to replace mature production tools.
+Config file support makes the tool easier to reuse. Users can define default project paths, report formats, output folders, analysis settings, and rule thresholds once in `codelens.yml` instead of passing long CLI commands every time.
 
 ---
 
-### Q4. How does security detection work?
+### Q4. Which has priority: CLI options or config file?
+
+**Answer:**
+
+CLI options override the config file. This is the expected behavior in many developer tools because the config provides defaults, while CLI options allow temporary changes.
+
+---
+
+### Q5. Is this a replacement for tools like SonarQube or Bandit?
+
+**Answer:**
+
+No. CodeLens AI is a lightweight educational and project-level tool. It demonstrates how static analysis, security detection, test generation, scoring, report generation, config support, and trend tracking can be combined. It is not intended to replace mature production tools.
+
+---
+
+### Q6. How does security detection work?
 
 **Answer:**
 
@@ -701,7 +867,7 @@ It parses the Python file using AST and looks for known risky patterns such as `
 
 ---
 
-### Q5. Can it detect every possible security vulnerability?
+### Q7. Can it detect every possible security vulnerability?
 
 **Answer:**
 
@@ -709,7 +875,7 @@ No. It currently detects common static patterns. More advanced vulnerabilities r
 
 ---
 
-### Q6. How is the score calculated?
+### Q8. How is the score calculated?
 
 **Answer:**
 
@@ -726,7 +892,7 @@ Then it assigns a grade from A to F.
 
 ---
 
-### Q7. What does score history tracking do?
+### Q9. What does score history tracking do?
 
 **Answer:**
 
@@ -734,7 +900,7 @@ Score history tracking stores the score from each run and compares the latest sc
 
 ---
 
-### Q8. Where is score history stored?
+### Q10. Where is score history stored?
 
 **Answer:**
 
@@ -749,7 +915,7 @@ The JSON file is machine-readable, and the Markdown file is human-readable.
 
 ---
 
-### Q9. Why did you generate JSON reports?
+### Q11. Why did you generate JSON reports?
 
 **Answer:**
 
@@ -757,7 +923,7 @@ JSON reports make the tool easier to integrate with dashboards, APIs, GitHub Act
 
 ---
 
-### Q10. Why did you generate HTML reports?
+### Q12. Why did you generate HTML reports?
 
 **Answer:**
 
@@ -765,7 +931,7 @@ HTML reports are easier to view in a browser and are useful for demos, presentat
 
 ---
 
-### Q11. How does test generation work?
+### Q13. How does test generation work?
 
 **Answer:**
 
@@ -773,7 +939,7 @@ The tool reads function names and arguments, creates test suggestions, writes py
 
 ---
 
-### Q12. Are the generated tests perfect?
+### Q14. Are the generated tests perfect?
 
 **Answer:**
 
@@ -781,15 +947,15 @@ No. The current test generation is basic. A future improvement is to use AI to g
 
 ---
 
-### Q13. Why did you add CLI options?
+### Q15. Why did you add CLI options?
 
 **Answer:**
 
-CLI options make the project more flexible and professional. Users can choose report format, skip AI, skip tests, disable history, and set custom output directories.
+CLI options make the project more flexible and professional. Users can choose report format, skip AI, skip tests, disable history, set custom output directories, and override config defaults.
 
 ---
 
-### Q14. What happens if Groq API key is missing?
+### Q16. What happens if Groq API key is missing?
 
 **Answer:**
 
@@ -799,19 +965,26 @@ The user can run the project with:
 python main.py analyze sample_projects/calculator_app --skip-ai
 ```
 
+or set this in `codelens.yml`:
+
+```yaml
+analysis:
+  skip_ai: true
+```
+
 This skips AI explanation and still generates reports.
 
 ---
 
-### Q15. What is the role of GitHub Actions?
+### Q17. What is the role of GitHub Actions?
 
 **Answer:**
 
-GitHub Actions automatically runs CodeLens AI when code is pushed or a pull request is opened. It also uploads generated reports and score history files as artifacts.
+GitHub Actions automatically runs CodeLens AI when code is pushed or a pull request is opened. It uses `codelens.yml` and uploads generated reports and score history files as artifacts.
 
 ---
 
-### Q16. What is the biggest limitation right now?
+### Q18. What is the biggest limitation right now?
 
 **Answer:**
 
@@ -819,7 +992,7 @@ The main limitations are that test generation is basic, security detection is ru
 
 ---
 
-### Q17. What are the next improvements?
+### Q19. What are the next improvements?
 
 **Answer:**
 
@@ -869,6 +1042,7 @@ Do not spend too much time on README.
 Instead, focus on:
 
 - Running commands
+- Showing config
 - Showing report output
 - Explaining architecture
 - Showing security detection
@@ -884,16 +1058,17 @@ Use this exact order:
 1. Open README.md
 2. Explain project in one line
 3. Show folder structure
-4. Open main.py
-5. Run calculator app analysis
-6. Run it again to show score history
-7. Open HTML report
-8. Open score_history.md
-9. Run vulnerable app analysis
-10. Show detected security issues
-11. Open JSON report
-12. Show GitHub Actions workflow
-13. Explain future improvements
+4. Open codelens.yml
+5. Open main.py
+6. Run analysis using config: python main.py analyze
+7. Run it again to show score history
+8. Open HTML report
+9. Open score_history.md
+10. Run vulnerable app using CLI override
+11. Show detected security issues
+12. Open JSON report
+13. Show GitHub Actions workflow
+14. Explain future improvements
 ```
 
 ---
@@ -902,9 +1077,11 @@ Use this exact order:
 
 Use this script if you need to present quickly.
 
-> CodeLens AI is a Python code analysis tool that combines static analysis, security checks, test generation, scoring, score history tracking, and report generation.  
+> CodeLens AI is a Python code analysis tool that combines static analysis, security checks, test generation, scoring, score history tracking, config file support, and report generation.  
 >
-> The project takes a Python folder as input. It scans all Python files using the AST module and extracts functions, classes, imports, arguments, line numbers, docstrings, and other metadata.  
+> The project takes a Python folder as input. It can get that input from the command line or from a `codelens.yml` config file.  
+>
+> It scans all Python files using the AST module and extracts functions, classes, imports, arguments, line numbers, docstrings, and other metadata.  
 >
 > Then it performs code quality analysis to detect issues like missing docstrings, long functions, too many arguments, and possible runtime errors.  
 >
@@ -918,7 +1095,7 @@ Use this script if you need to present quickly.
 >
 > It also tracks score history over multiple runs, so we can see whether a project is improving, declining, or staying unchanged.  
 >
-> I added CLI options so users can choose the report format, skip AI explanation, skip tests, disable history tracking, or set a custom output directory.  
+> I added CLI options and config file support so users can choose the report format, skip AI explanation, skip tests, disable history tracking, set custom output directories, and define rule thresholds.  
 >
 > The project is integrated with GitHub Actions, so analysis can run automatically on push and pull requests.  
 >
@@ -943,19 +1120,19 @@ nothing to commit, working tree clean
 Then run:
 
 ```bash
-python main.py analyze sample_projects/calculator_app --format all --skip-ai
+python main.py analyze
 ```
 
 Run it again:
 
 ```bash
-python main.py analyze sample_projects/calculator_app --format all --skip-ai
+python main.py analyze
 ```
 
 Then run:
 
 ```bash
-python main.py analyze sample_projects/vulnerable_app --format html --skip-ai --skip-tests
+python main.py analyze sample_projects/vulnerable_app --format html --skip-tests
 ```
 
 Then open:
@@ -983,6 +1160,7 @@ Completed modules:
 - Security analyzer
 - Score calculator
 - Score history tracker
+- Config loader
 - Test suggestion generator
 - Pytest writer
 - Pytest runner
@@ -991,6 +1169,7 @@ Completed modules:
 - JSON reporter
 - HTML reporter
 - CLI options
+- Config file support
 - GitHub Actions workflow
 - README documentation
 - Demo guide
@@ -1010,11 +1189,11 @@ Recommended future technical improvements:
 6. HTML dashboard with charts
 7. Support for large repositories
 8. Support for JavaScript or Java
-9. Config file support using `codelens.yml`
+9. Advanced config profiles
 10. Exporting report summaries as GitHub PR comments
 
 ---
 
 ## 18. Short Closing Statement
 
-> CodeLens AI demonstrates how static analysis, AI explanation, security checks, testing, scoring, score history tracking, and report generation can be combined into one automated developer tool.
+> CodeLens AI demonstrates how static analysis, AI explanation, security checks, testing, scoring, score history tracking, config support, and report generation can be combined into one automated developer tool.
