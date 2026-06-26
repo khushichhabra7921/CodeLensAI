@@ -15,3 +15,7 @@ rules:
   max_arguments: 5
   check_security: true
   allow_http_urls: false
+  check_dependencies: true
+  require_pinned_dependencies: true
+  allow_editable_installs: false
+  allow_http_dependencies: false

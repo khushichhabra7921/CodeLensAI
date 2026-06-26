@@ -4,6 +4,7 @@ from pathlib import Path
 from codelens.scanner import scan_project
 from codelens.analyzer import analyze_project
 from codelens.security_analyzer import analyze_security_issues
+from codelens.dependency_analyzer import analyze_dependency_issues
 from codelens.test_generator import generate_test_suggestions
 from codelens.test_writer import generate_pytest_files
 from codelens.test_runner import run_pytest
@@ -24,18 +25,11 @@ from codelens.config_loader import (
 def parse_arguments():
     """
     Parses command-line arguments.
-
-    Config file support:
-
-    python main.py analyze
-    python main.py analyze --config codelens.yml
-    python main.py analyze sample_projects/calculator_app
-    python main.py analyze sample_projects/vulnerable_app --format html
     """
 
     parser = argparse.ArgumentParser(
         prog="CodeLens AI",
-        description="Analyze Python projects for code quality, security issues, tests, and reports.",
+        description="Analyze Python projects for code quality, security issues, dependency issues, tests, and reports.",
     )
 
     parser.add_argument(
@@ -280,15 +274,18 @@ def print_runtime_options(options):
     print(f"Skip tests: {options['skip_tests']}")
     print(f"Track history: {options['track_history']}")
     print(f"Check security: {options['rules_config'].get('check_security', True)}")
+    print(f"Check dependencies: {options['rules_config'].get('check_dependencies', True)}")
     print(f"Max function lines: {options['rules_config'].get('max_function_lines', 30)}")
     print(f"Max arguments: {options['rules_config'].get('max_arguments', 5)}")
     print(f"Allow HTTP URLs: {options['rules_config'].get('allow_http_urls', False)}")
+    print(f"Require pinned dependencies: {options['rules_config'].get('require_pinned_dependencies', True)}")
 
 
 def print_project_summary(
     results,
     code_quality_issues,
     security_issues,
+    dependency_issues,
     all_issues,
     test_suggestions,
     generated_test_files,
@@ -316,6 +313,7 @@ def print_project_summary(
     print(f"Total issues found: {len(all_issues)}")
     print(f"Code quality issues found: {len(code_quality_issues)}")
     print(f"Security issues found: {len(security_issues)}")
+    print(f"Dependency issues found: {len(dependency_issues)}")
     print(f"Test suggestions generated: {len(test_suggestions)}")
     print(f"Pytest files generated: {len(generated_test_files)}")
     print(f"Test run status: {get_test_status_label(test_run_result)}")
@@ -326,7 +324,7 @@ def print_project_summary(
         print("AI explanation generated: True")
 
     print()
-    print("Code Quality and Security Score")
+    print("Code Quality, Security, and Dependency Score")
     print("-" * 40)
     print(f"Score: {code_score['score']}/100")
     print(f"Grade: {code_score['grade']}")
@@ -536,7 +534,9 @@ def main():
     else:
         security_issues = []
 
-    all_issues = code_quality_issues + security_issues
+    dependency_issues = analyze_dependency_issues(project_path, rules_config)
+
+    all_issues = code_quality_issues + security_issues + dependency_issues
 
     code_score = calculate_code_score(results, all_issues)
 
@@ -570,6 +570,7 @@ def main():
             ai_explanation,
             code_score,
             security_issues,
+            dependency_issues,
             output_path=output_dir / "codelens_report.md",
         )
 
@@ -580,6 +581,7 @@ def main():
             results,
             code_quality_issues,
             security_issues,
+            dependency_issues,
             all_issues,
             test_suggestions,
             generated_test_files,
@@ -597,6 +599,7 @@ def main():
             results,
             code_quality_issues,
             security_issues,
+            dependency_issues,
             all_issues,
             test_suggestions,
             generated_test_files,
@@ -634,6 +637,7 @@ def main():
         results,
         code_quality_issues,
         security_issues,
+        dependency_issues,
         all_issues,
         test_suggestions,
         generated_test_files,
@@ -647,6 +651,8 @@ def main():
     print_issues("Code Quality Issues", code_quality_issues)
 
     print_issues("Security Issues", security_issues)
+
+    print_issues("Dependency Issues", dependency_issues)
 
     print_ai_explanation(ai_explanation)
 

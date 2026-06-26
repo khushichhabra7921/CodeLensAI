@@ -6,9 +6,6 @@ from pathlib import Path
 def make_json_safe(value):
     """
     Converts values into JSON-safe data.
-
-    This helps avoid errors if any value is a Path, tuple, set,
-    or another object that json.dump cannot directly serialize.
     """
 
     if isinstance(value, dict):
@@ -32,10 +29,25 @@ def make_json_safe(value):
     return value
 
 
+def get_test_status_label(test_run_result):
+    """
+    Returns readable test status.
+    """
+
+    if test_run_result.get("skipped"):
+        return "Skipped"
+
+    if test_run_result.get("passed"):
+        return "Passed"
+
+    return "Failed"
+
+
 def build_project_summary(
     scan_results,
     code_quality_issues,
     security_issues,
+    dependency_issues,
     all_issues,
     test_suggestions,
     generated_test_files,
@@ -58,9 +70,11 @@ def build_project_summary(
         "total_issues_found": len(all_issues),
         "code_quality_issues_found": len(code_quality_issues),
         "security_issues_found": len(security_issues),
+        "dependency_issues_found": len(dependency_issues),
         "test_suggestions_generated": len(test_suggestions),
         "pytest_files_generated": len(generated_test_files),
-        "test_run_passed": test_run_result["passed"],
+        "test_run_passed": test_run_result.get("passed"),
+        "test_run_status": get_test_status_label(test_run_result),
     }
 
 
@@ -68,6 +82,7 @@ def generate_json_report(
     scan_results,
     code_quality_issues,
     security_issues,
+    dependency_issues,
     all_issues,
     test_suggestions,
     generated_test_files,
@@ -79,13 +94,6 @@ def generate_json_report(
 ):
     """
     Generates a structured JSON report.
-
-    The JSON report can later be used for:
-    - Web dashboards
-    - GitHub Actions artifacts
-    - API integrations
-    - Charts
-    - Score history tracking
     """
 
     output_path = Path(output_path)
@@ -104,6 +112,7 @@ def generate_json_report(
             scan_results,
             code_quality_issues,
             security_issues,
+            dependency_issues,
             all_issues,
             test_suggestions,
             generated_test_files,
@@ -115,6 +124,7 @@ def generate_json_report(
             "all": all_issues,
             "code_quality": code_quality_issues,
             "security": security_issues,
+            "dependency": dependency_issues,
         },
         "tests": {
             "suggestions": test_suggestions,

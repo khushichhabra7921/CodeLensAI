@@ -24,16 +24,20 @@ def generate_markdown_report(
     ai_explanation,
     code_score=None,
     security_issues=None,
+    dependency_issues=None,
     output_path="reports/codelens_report.md",
 ):
     """
     Generates a Markdown report from scanner, analyzer, security analyzer,
-    test suggestions, generated test files, pytest result, AI explanation,
-    and code quality score.
+    dependency analyzer, test suggestions, generated test files, pytest result,
+    AI explanation, and code quality score.
     """
 
     if security_issues is None:
         security_issues = []
+
+    if dependency_issues is None:
+        dependency_issues = []
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -44,7 +48,9 @@ def generate_markdown_report(
     total_classes = sum(len(file_result["classes"]) for file_result in scan_results)
 
     code_quality_issues = [
-        issue for issue in issues if issue.get("category") != "Security"
+        issue
+        for issue in issues
+        if issue.get("category") not in ["Security", "Dependency"]
     ]
 
     lines = []
@@ -61,13 +67,14 @@ def generate_markdown_report(
     lines.append(f"- Total issues found: {len(issues)}")
     lines.append(f"- Code quality issues found: {len(code_quality_issues)}")
     lines.append(f"- Security issues found: {len(security_issues)}")
+    lines.append(f"- Dependency issues found: {len(dependency_issues)}")
     lines.append(f"- Test suggestions generated: {len(test_suggestions)}")
     lines.append(f"- Pytest files generated: {len(generated_test_files)}")
     lines.append(f"- Test run status: {get_test_status_label(test_run_result)}")
     lines.append("")
 
     if code_score:
-        lines.append("## Code Quality and Security Score")
+        lines.append("## Code Quality, Security, and Dependency Score")
         lines.append("")
         lines.append(f"- Score: **{code_score['score']}/100**")
         lines.append(f"- Grade: **{code_score['grade']}**")
@@ -180,6 +187,23 @@ def generate_markdown_report(
             lines.append("")
     else:
         lines.append("No security issues found.")
+        lines.append("")
+
+    lines.append("## Dependency Issues")
+    lines.append("")
+
+    if dependency_issues:
+        for issue in dependency_issues:
+            lines.append(f"### {issue['type']}")
+            lines.append("")
+            lines.append(f"- Severity: **{issue['severity']}**")
+            lines.append(f"- File: `{issue['file']}`")
+            lines.append(f"- Line: {issue['line']}")
+            lines.append(f"- Message: {issue['message']}")
+            lines.append(f"- Suggestion: {issue['suggestion']}")
+            lines.append("")
+    else:
+        lines.append("No dependency issues found.")
         lines.append("")
 
     lines.append("## Test Suggestions")

@@ -1,4 +1,5 @@
 from pathlib import Path
+import copy
 
 try:
     import yaml
@@ -24,6 +25,10 @@ DEFAULT_CONFIG = {
         "max_arguments": 5,
         "check_security": True,
         "allow_http_urls": False,
+        "check_dependencies": True,
+        "require_pinned_dependencies": True,
+        "allow_editable_installs": False,
+        "allow_http_dependencies": False,
     },
 }
 
@@ -35,7 +40,7 @@ def deep_merge(default_config, user_config):
     Values from user_config override values from default_config.
     """
 
-    merged = default_config.copy()
+    merged = copy.deepcopy(default_config)
 
     for key, value in user_config.items():
         if (
@@ -55,16 +60,16 @@ def load_yaml_file(config_path):
     Loads a YAML config file.
     """
 
+    config_path = Path(config_path)
+
+    if not config_path.exists():
+        return {}
+
     if yaml is None:
         raise ImportError(
             "PyYAML is required for config file support. "
             "Install it using: python -m pip install PyYAML"
         )
-
-    config_path = Path(config_path)
-
-    if not config_path.exists():
-        return {}
 
     with open(config_path, "r", encoding="utf-8") as file:
         loaded_config = yaml.safe_load(file)

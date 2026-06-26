@@ -65,7 +65,7 @@ def get_test_status_class(test_run_result):
 
 def build_issue_cards(issues):
     """
-    Builds HTML cards for code quality or security issues.
+    Builds HTML cards for issues.
     """
 
     if not issues:
@@ -86,6 +86,7 @@ def build_issue_cards(issues):
                 </div>
                 <p><strong>File:</strong> <code>{html_escape(issue.get("file", ""))}</code></p>
                 <p><strong>Line:</strong> {html_escape(issue.get("line", ""))}</p>
+                <p><strong>Category:</strong> {html_escape(issue.get("category", ""))}</p>
                 <p><strong>Message:</strong> {html_escape(issue.get("message", ""))}</p>
                 <p><strong>Suggestion:</strong> {html_escape(issue.get("suggestion", ""))}</p>
             </div>
@@ -106,8 +107,6 @@ def build_file_analysis(scan_results):
     sections = []
 
     for file_result in scan_results:
-        imports_html = ""
-
         if file_result["imports"]:
             imports_html = "".join(
                 f"<li><code>{html_escape(item)}</code></li>"
@@ -116,9 +115,9 @@ def build_file_analysis(scan_results):
         else:
             imports_html = "<li>None</li>"
 
-        functions_html = ""
-
         if file_result["functions"]:
+            functions_html = ""
+
             for function in file_result["functions"]:
                 arguments = ", ".join(function["arguments"])
                 has_docstring = "Yes" if function["has_docstring"] else "No"
@@ -137,9 +136,9 @@ def build_file_analysis(scan_results):
         else:
             functions_html = "<p class='empty-message'>No functions found.</p>"
 
-        classes_html = ""
-
         if file_result["classes"]:
+            classes_html = ""
+
             for class_info in file_result["classes"]:
                 has_docstring = "Yes" if class_info["has_docstring"] else "No"
 
@@ -229,6 +228,7 @@ def generate_html_report(
     scan_results,
     code_quality_issues,
     security_issues,
+    dependency_issues,
     all_issues,
     test_suggestions,
     generated_test_files,
@@ -240,12 +240,6 @@ def generate_html_report(
 ):
     """
     Generates a browser-friendly HTML report.
-
-    The HTML report is useful for:
-    - Project demos
-    - Faculty mentor presentation
-    - Browser viewing
-    - Future dashboard design
     """
 
     output_path = Path(output_path)
@@ -312,10 +306,6 @@ def generate_html_report(
             margin-top: 0;
             border-bottom: 2px solid #e5e7eb;
             padding-bottom: 10px;
-        }}
-
-        h3 {{
-            margin-bottom: 8px;
         }}
 
         code {{
@@ -476,6 +466,7 @@ def generate_html_report(
                 <div class="summary-card"><span>Total issues</span><strong>{len(all_issues)}</strong></div>
                 <div class="summary-card"><span>Code quality issues</span><strong>{len(code_quality_issues)}</strong></div>
                 <div class="summary-card"><span>Security issues</span><strong>{len(security_issues)}</strong></div>
+                <div class="summary-card"><span>Dependency issues</span><strong>{len(dependency_issues)}</strong></div>
                 <div class="summary-card"><span>Test suggestions</span><strong>{len(test_suggestions)}</strong></div>
                 <div class="summary-card"><span>Pytest files</span><strong>{len(generated_test_files)}</strong></div>
                 <div class="summary-card"><span>Test run</span><strong class="{test_status_class}">{test_status}</strong></div>
@@ -483,7 +474,7 @@ def generate_html_report(
         </section>
 
         <section>
-            <h2>Code Quality and Security Score</h2>
+            <h2>Code Quality, Security, and Dependency Score</h2>
             <div class="score-box">
                 <div class="score-main">
                     <div class="score">{html_escape(code_score["score"])}/100</div>
@@ -508,6 +499,11 @@ def generate_html_report(
         <section>
             <h2>Security Issues</h2>
             {build_issue_cards(security_issues)}
+        </section>
+
+        <section>
+            <h2>Dependency Issues</h2>
+            {build_issue_cards(dependency_issues)}
         </section>
 
         <section>
