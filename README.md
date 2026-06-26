@@ -1,84 +1,508 @@
 # CodeLens AI
 
-![CodeLens AI Analysis](https://github.com/khushichhabra7921/CodeLensAI/actions/workflows/codelens.yml/badge.svg)
+CodeLens AI is a Python-based code analysis, security review, dependency review, testing, reporting, and CI automation tool.
 
-CodeLens AI is an AI-powered Python code analysis tool that scans a Python project, detects code quality issues, detects common security risks, generates pytest test suggestions, creates actual pytest test files, runs those tests automatically, calculates a code quality and security score, tracks score history over multiple runs, and produces Markdown, JSON, and HTML reports with an AI-generated explanation of the codebase.
+It scans a Python project, identifies code quality issues, detects security risks, checks dependency hygiene, generates pytest tests, calculates a score, tracks trends over time, creates reports, and can automatically comment on GitHub pull requests.
 
-It also supports a project-level configuration file named `codelens.yml`, so users can define default project paths, report formats, output folders, analysis settings, and rule thresholds.
+In simple terms:
+
+> CodeLens AI is a lightweight AI-assisted code review tool for Python projects.
 
 ---
 
 ## Features
 
-- Scans Python files in a project folder
-- Extracts imports, functions, classes, arguments, line numbers, and docstrings
-- Detects missing docstrings
-- Detects possible division-by-zero risks
-- Detects functions with too many arguments
-- Detects long functions
-- Detects common security issues
-- Detects hardcoded secrets
-- Detects unsafe `eval()` usage
-- Detects unsafe `exec()` usage
-- Detects unsafe `os.system()` usage
-- Detects `subprocess` usage with `shell=True`
-- Detects unsafe `pickle.load()` and `pickle.loads()` usage
-- Detects unsafe `yaml.load()` usage without SafeLoader
-- Detects insecure HTTP URLs
-- Calculates a code quality and security score
-- Tracks score history between analysis runs
-- Shows whether the score improved, declined, or stayed unchanged
-- Generates pytest test suggestions
-- Creates actual pytest test files
-- Runs generated pytest tests automatically
-- Generates a Markdown report
-- Generates a structured JSON report
-- Generates a browser-friendly HTML report
-- Generates score history reports
-- Supports CLI options for report format, skipping AI, skipping tests, and disabling history
-- Supports project configuration using `codelens.yml`
-- Supports custom rule settings from config
-- Uses Groq LLM to generate an AI explanation of the codebase
-- Runs automatically on GitHub Actions for every push and pull request
-- Uploads reports as GitHub Actions artifacts
+### Python Code Scanner
+
+CodeLens AI scans Python files and extracts:
+
+- Imports
+- Functions
+- Classes
+- Function arguments
+- Line numbers
+- Function line count
+- Class line count
+- Docstring availability
+- Division operation usage
+- Async function detection
+- Class method detection
+
+The scanner uses Python's AST module, so it analyzes code structure instead of only searching text.
 
 ---
 
-## Tech Stack
+### Code Quality Analyzer
 
-- Python
-- AST module
-- Pytest
-- Groq LLM
-- python-dotenv
-- PyYAML
-- GitHub Actions
-- Markdown report generation
-- JSON report generation
-- HTML report generation
-- Score history tracking
-- argparse CLI
-- YAML configuration
+CodeLens AI detects basic code quality issues such as:
+
+- Missing function docstrings
+- Missing class docstrings
+- Long functions
+- Too many function arguments
+- Possible division-related runtime risks
+
+These rules can be configured from `codelens.yml`.
+
+---
+
+### Security Analyzer
+
+CodeLens AI detects risky Python patterns such as:
+
+- `eval()`
+- `exec()`
+- `os.system()`
+- `subprocess` with `shell=True`
+- `pickle.load()`
+- `pickle.loads()`
+- Unsafe `yaml.load()`
+- Hardcoded secrets
+- Insecure `http://` URLs
+
+This helps identify common security problems during development.
+
+---
+
+### Dependency Analyzer
+
+CodeLens AI checks dependency files for dependency hygiene issues.
+
+Supported files include:
+
+- `requirements.txt`
+- `requirements-dev.txt`
+- `dev-requirements.txt`
+- `requirements/*.txt`
+- `pyproject.toml`
+- `Pipfile`
+
+It can detect:
+
+- Missing dependency files
+- Empty dependency files
+- Unpinned dependencies
+- Loose version constraints
+- Wildcard dependency versions
+- Unsafe HTTP dependency URLs
+- Editable installs
+- Direct URL dependencies
+- Local path dependencies
+- Invalid TOML dependency files
+- Unsupported dependency formats
+
+Example issue:
+
+```text
+pytest
+```
+
+This is considered unpinned.
+
+Preferred format:
+
+```text
+pytest==8.4.1
+```
+
+---
+
+### Ignore / Exclude Patterns
+
+CodeLens AI supports ignore patterns through `codelens.yml`.
+
+By default, it skips folders such as:
+
+```text
+.git
+.venv
+venv
+__pycache__
+.pytest_cache
+.mypy_cache
+generated_tests
+reports
+node_modules
+dist
+build
+```
+
+This keeps scans clean and prevents generated files or environment folders from being analyzed.
+
+---
+
+### Score Calculator
+
+CodeLens AI calculates a score from `0` to `100`.
+
+The score starts at `100` and decreases based on issue severity:
+
+```text
+Critical: -20
+High:     -15
+Medium:   -8
+Low:      -4
+```
+
+It also assigns a grade:
+
+```text
+A: Excellent
+B: Good
+C: Needs Improvement
+D: Poor
+F: Critical
+```
+
+---
+
+### Score History Tracking
+
+CodeLens AI tracks score history across multiple runs.
+
+It generates:
+
+```text
+reports/score_history.json
+reports/score_history.md
+```
+
+The history tracker shows whether the project score has:
+
+- Improved
+- Declined
+- Stayed unchanged
+- Been tracked for the first time
+
+---
+
+### Issue Trend Tracking
+
+CodeLens AI tracks issue changes across multiple runs.
+
+It generates:
+
+```text
+reports/issue_trends.json
+reports/issue_trends.md
+```
+
+It compares the current run with the previous run and shows:
+
+- Added issues
+- Resolved issues
+- Unchanged issues
+- Issue count change
+- Category breakdown
+- Severity breakdown
+- Recent runs
+
+---
+
+### Test Suggestion Generator
+
+CodeLens AI generates test suggestions for every discovered function.
+
+Suggestions include:
+
+- Function existence tests
+- Callable checks
+- Normal input tests
+- Edge case tests
+- Invalid input tests
+- Arithmetic-specific tests
+- Division-by-zero behavior tests
+- Class method setup suggestions
+
+---
+
+### Improved Pytest Generator
+
+CodeLens AI can automatically generate pytest files inside:
+
+```text
+generated_tests/
+```
+
+It creates safer tests such as:
+
+- Import tests
+- Function existence tests
+- Callable tests
+- Addition tests
+- Subtraction tests
+- Multiplication tests
+- Division tests
+- Square / cube / power tests
+- String reverse tests
+- Even / odd tests
+
+Old generated tests are automatically cleaned before new ones are created.
+
+---
+
+### Automatic Pytest Runner
+
+CodeLens AI can run the generated pytest files automatically.
+
+The pytest result is included in:
+
+- Terminal output
+- Markdown report
+- JSON report
+- HTML report
+- PR comment
+- Quality gate report
+
+---
+
+### AI Codebase Explanation
+
+CodeLens AI can generate an AI explanation of the analyzed codebase using Groq.
+
+AI explanation can be skipped using:
+
+```bash
+python main.py analyze --skip-ai
+```
+
+or through config:
+
+```yaml
+analysis:
+  skip_ai: true
+```
+
+By default, the project config skips AI to make local and CI runs faster and easier.
+
+---
+
+### Markdown Report
+
+CodeLens AI generates:
+
+```text
+reports/codelens_report.md
+```
+
+The Markdown report includes:
+
+- Project summary
+- Score
+- Detailed file analysis
+- Code quality issues
+- Security issues
+- Dependency issues
+- Test suggestions
+- Generated pytest files
+- Pytest result
+- AI explanation
+
+---
+
+### JSON Report
+
+CodeLens AI generates:
+
+```text
+reports/codelens_report.json
+```
+
+The JSON report is useful for:
+
+- Automation
+- CI/CD
+- Programmatic analysis
+- Integrating with other tools
+
+---
+
+### HTML Dashboard Report
+
+CodeLens AI generates:
+
+```text
+reports/codelens_report.html
+```
+
+The HTML dashboard includes:
+
+- Summary cards
+- Score panel
+- Severity breakdown
+- Category breakdown
+- Issue type breakdown
+- All issues table
+- Code quality section
+- Security section
+- Dependency section
+- File analysis section
+- Test section
+- AI explanation section
+
+Open it in a browser to view the dashboard.
+
+---
+
+### Pull Request Comment Generation
+
+CodeLens AI generates:
+
+```text
+reports/pr_comment.md
+```
+
+In GitHub Actions, this file is used to automatically comment a summary on pull requests.
+
+The PR comment includes:
+
+- Score
+- Grade
+- Status
+- Test status
+- Score trend
+- Issue trend
+- Project summary
+- Issue summary
+- Top code quality issues
+- Top security issues
+- Top dependency issues
+- Generated report paths
+
+---
+
+### Quality Gate
+
+CodeLens AI supports quality gate rules through `codelens.yml`.
+
+It generates:
+
+```text
+reports/quality_gate.json
+reports/quality_gate.md
+```
+
+Quality gate checks can include:
+
+- Minimum score
+- Maximum total issues
+- Maximum critical issues
+- Maximum high issues
+- Maximum medium issues
+- Maximum low issues
+- Whether failed generated tests should fail the gate
+
+Example:
+
+```yaml
+quality_gate:
+  enabled: true
+  min_score: 70
+  max_critical_issues: 0
+  max_high_issues: 5
+  fail_on_tests_failed: true
+```
+
+If the quality gate fails, CodeLens AI exits with a non-zero status code. This allows GitHub Actions to fail the workflow when quality rules are not met.
+
+---
+
+### CLI Support
+
+CodeLens AI supports flexible command-line options.
+
+Examples:
+
+```bash
+python main.py analyze
+python main.py analyze sample_projects/calculator_app
+python main.py analyze sample_projects/vulnerable_app
+python main.py analyze --format html
+python main.py analyze --format json
+python main.py analyze --format markdown
+python main.py analyze --skip-ai
+python main.py analyze --use-ai
+python main.py analyze --skip-tests
+python main.py analyze --run-tests
+python main.py analyze --no-history
+python main.py analyze --track-history
+python main.py analyze --no-issue-trends
+python main.py analyze --track-issue-trends
+python main.py analyze --no-pr-comment
+python main.py analyze --generate-pr-comment
+python main.py analyze --no-quality-gate
+python main.py analyze --quality-gate
+python main.py analyze --output-dir custom_reports
+python main.py analyze --config codelens.yml
+```
+
+---
+
+### Config File Support
+
+CodeLens AI supports a root-level config file:
+
+```text
+codelens.yml
+```
+
+This lets users control default project path, report format, output directory, analysis options, rules, ignore patterns, dependency patterns, PR comment generation, and quality gate behavior.
+
+---
+
+### GitHub Actions Workflow
+
+CodeLens AI includes a GitHub Actions workflow that runs on:
+
+- Push to `main`
+- Pull request to `main`
+- Manual workflow trigger
+
+The workflow:
+
+- Installs Python dependencies
+- Runs CodeLens AI
+- Runs generated pytest tests
+- Posts PR comments on pull requests
+- Uploads reports as workflow artifacts
+
+Generated artifacts include:
+
+```text
+reports/codelens_report.md
+reports/codelens_report.json
+reports/codelens_report.html
+reports/score_history.json
+reports/score_history.md
+reports/issue_trends.json
+reports/issue_trends.md
+reports/quality_gate.json
+reports/quality_gate.md
+reports/pr_comment.md
+```
 
 ---
 
 ## Project Structure
 
 ```text
-CodeLensAI/
+CODELENS-AI/
 │
 ├── .github/
 │   └── workflows/
 │       └── codelens.yml
 │
 ├── codelens/
-│   ├── __init__.py
 │   ├── ai_explainer.py
 │   ├── analyzer.py
 │   ├── config_loader.py
+│   ├── dependency_analyzer.py
 │   ├── history_tracker.py
 │   ├── html_reporter.py
+│   ├── issue_trend_tracker.py
 │   ├── json_reporter.py
+│   ├── pr_commenter.py
+│   ├── quality_gate.py
 │   ├── reporter.py
 │   ├── scanner.py
 │   ├── score_calculator.py
@@ -95,56 +519,16 @@ CodeLensAI/
 │       └── vulnerable.py
 │
 ├── generated_tests/
-│   └── test_calculator_generated.py
+│   └── generated pytest files
 │
 ├── reports/
-│   ├── codelens_report.md
-│   ├── codelens_report.json
-│   ├── codelens_report.html
-│   ├── score_history.json
-│   └── score_history.md
+│   └── generated reports
 │
-├── .env
-├── .gitignore
 ├── codelens.yml
-├── DEMO_GUIDE.md
 ├── main.py
+├── requirements.txt
 ├── README.md
-└── requirements.txt
-```
-
----
-
-## How It Works
-
-```text
-User runs CodeLens AI
-        ↓
-CodeLens loads CLI options and codelens.yml config
-        ↓
-It resolves project path, report format, output folder, and analysis settings
-        ↓
-It scans all Python files
-        ↓
-It extracts imports, functions, classes, arguments, line numbers, and docstrings
-        ↓
-It detects code quality issues
-        ↓
-It detects security issues
-        ↓
-It calculates a code quality and security score
-        ↓
-It generates pytest test suggestions
-        ↓
-It creates actual pytest test files
-        ↓
-It runs the generated tests
-        ↓
-It generates an AI explanation of the codebase
-        ↓
-It creates Markdown, JSON, and HTML reports
-        ↓
-It updates score history and trend reports
+└── DEMO_GUIDE.md
 ```
 
 ---
@@ -158,248 +542,79 @@ git clone https://github.com/khushichhabra7921/CodeLensAI.git
 cd CodeLensAI
 ```
 
+Create a virtual environment:
+
+```bash
+python -m venv venv
+```
+
+Activate it on Windows PowerShell:
+
+```bash
+venv\Scripts\Activate.ps1
+```
+
+If PowerShell blocks script execution, use:
+
+```bash
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+Then activate again:
+
+```bash
+venv\Scripts\Activate.ps1
+```
+
 Install dependencies:
 
 ```bash
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
 ---
 
-## Environment Setup
+## Optional AI Setup
 
 Create a `.env` file in the root folder:
 
 ```text
-GROQ_API_KEY=your_groq_api_key_here
+GROQ_API_KEY=your_api_key_here
 GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
-The `.env` file is ignored by Git and should not be pushed to GitHub.
-
-For GitHub Actions, add your Groq API key as a repository secret:
-
-```text
-GROQ_API_KEY
-```
-
-You can also run the project without AI explanation by using:
-
-```bash
-python main.py analyze sample_projects/calculator_app --skip-ai
-```
-
----
-
-## Configuration File
-
-CodeLens AI supports a root-level config file:
-
-```text
-codelens.yml
-```
-
-Example:
-
-```yaml
-project:
-  default_path: sample_projects/calculator_app
-
-reports:
-  format: all
-  output_dir: reports
-
-analysis:
-  skip_ai: true
-  skip_tests: false
-  track_history: true
-
-rules:
-  max_function_lines: 30
-  max_arguments: 5
-  check_security: true
-  allow_http_urls: false
-```
-
----
-
-## Config Options
-
-### `project.default_path`
-
-Default project folder to analyze when no path is provided.
-
-```yaml
-project:
-  default_path: sample_projects/calculator_app
-```
-
-This allows:
-
-```bash
-python main.py analyze
-```
-
----
-
-### `reports.format`
-
-Controls which report format to generate.
-
-Allowed values:
-
-```text
-all
-markdown
-md
-json
-html
-```
-
-Example:
-
-```yaml
-reports:
-  format: html
-```
-
----
-
-### `reports.output_dir`
-
-Controls where reports are saved.
-
-```yaml
-reports:
-  output_dir: reports
-```
-
----
-
-### `analysis.skip_ai`
-
-Skips AI explanation generation.
+If you do not want to use AI explanation, keep this in `codelens.yml`:
 
 ```yaml
 analysis:
   skip_ai: true
 ```
 
-Useful when:
-
-- You do not have a Groq API key
-- You want faster local testing
-- You only want static analysis reports
-
----
-
-### `analysis.skip_tests`
-
-Skips pytest file generation and pytest execution.
-
-```yaml
-analysis:
-  skip_tests: false
-```
-
----
-
-### `analysis.track_history`
-
-Controls score history tracking.
-
-```yaml
-analysis:
-  track_history: true
-```
-
----
-
-### `rules.max_function_lines`
-
-Controls the line-count threshold for long function detection.
-
-```yaml
-rules:
-  max_function_lines: 30
-```
-
----
-
-### `rules.max_arguments`
-
-Controls the argument-count threshold for too many arguments.
-
-```yaml
-rules:
-  max_arguments: 5
-```
-
----
-
-### `rules.check_security`
-
-Enables or disables security analysis.
-
-```yaml
-rules:
-  check_security: true
-```
-
----
-
-### `rules.allow_http_urls`
-
-Controls whether insecure `http://` URLs should be reported.
-
-```yaml
-rules:
-  allow_http_urls: false
-```
-
----
-
-## CLI Overrides Config
-
-CLI options override values from `codelens.yml`.
-
-For example, if config has:
-
-```yaml
-analysis:
-  skip_ai: true
-```
-
-You can force AI generation with:
+or run:
 
 ```bash
-python main.py analyze --use-ai
-```
-
-If config has:
-
-```yaml
-analysis:
-  skip_tests: true
-```
-
-You can force tests to run with:
-
-```bash
-python main.py analyze --run-tests
+python main.py analyze --skip-ai
 ```
 
 ---
 
 ## Basic Usage
 
-Analyze the default project from `codelens.yml`:
+Run the default analysis:
 
 ```bash
 python main.py analyze
 ```
 
-Analyze the calculator sample project:
+This uses the default project path from `codelens.yml`:
+
+```yaml
+project:
+  default_path: sample_projects/calculator_app
+```
+
+Analyze a specific project:
 
 ```bash
 python main.py analyze sample_projects/calculator_app
@@ -411,35 +626,118 @@ Analyze the vulnerable sample project:
 python main.py analyze sample_projects/vulnerable_app
 ```
 
-Use a specific config file:
+Generate only HTML report:
 
 ```bash
-python main.py analyze --config codelens.yml
+python main.py analyze --format html
 ```
 
-You can also run the tool without the `analyze` keyword:
+Generate all reports:
 
 ```bash
-python main.py sample_projects/calculator_app
+python main.py analyze --format all
 ```
 
-Run generated tests manually:
+Skip AI:
 
 ```bash
-python -m pytest generated_tests -v
+python main.py analyze --skip-ai
+```
+
+Skip tests:
+
+```bash
+python main.py analyze --skip-tests
+```
+
+Disable quality gate for a run:
+
+```bash
+python main.py analyze --no-quality-gate
+```
+
+Use custom output directory:
+
+```bash
+python main.py analyze --output-dir custom_reports
 ```
 
 ---
 
-## CLI Options
+## Configuration
 
-### Generate All Reports
+Default `codelens.yml`:
 
-```bash
-python main.py analyze sample_projects/calculator_app --format all
+```yaml
+project:
+  default_path: sample_projects/calculator_app
+
+reports:
+  format: all
+  output_dir: reports
+  generate_pr_comment: true
+
+analysis:
+  skip_ai: true
+  skip_tests: false
+  track_history: true
+  track_issue_trends: true
+
+quality_gate:
+  enabled: true
+  min_score: 0
+  max_total_issues: null
+  max_critical_issues: 0
+  max_high_issues: 10
+  max_medium_issues: null
+  max_low_issues: null
+  fail_on_tests_failed: true
+
+rules:
+  max_function_lines: 30
+  max_arguments: 5
+  check_security: true
+  allow_http_urls: false
+  check_dependencies: true
+  dependency_file_patterns:
+    - requirements.txt
+    - requirements-dev.txt
+    - dev-requirements.txt
+    - requirements/*.txt
+    - pyproject.toml
+    - Pipfile
+  require_pinned_dependencies: true
+  allow_editable_installs: false
+  allow_http_dependencies: false
+
+ignore:
+  folders:
+    - .git
+    - .venv
+    - venv
+    - __pycache__
+    - .pytest_cache
+    - .mypy_cache
+    - generated_tests
+    - reports
+    - node_modules
+    - dist
+    - build
+
+  files: []
 ```
 
-This creates:
+---
+
+## Generated Reports
+
+After running:
+
+```bash
+python main.py analyze
+```
+
+CodeLens AI can generate:
 
 ```text
 reports/codelens_report.md
@@ -447,421 +745,27 @@ reports/codelens_report.json
 reports/codelens_report.html
 reports/score_history.json
 reports/score_history.md
+reports/issue_trends.json
+reports/issue_trends.md
+reports/quality_gate.json
+reports/quality_gate.md
+reports/pr_comment.md
 ```
 
----
-
-### Generate Only Markdown Report
-
-```bash
-python main.py analyze sample_projects/calculator_app --format markdown
-```
-
-or:
-
-```bash
-python main.py analyze sample_projects/calculator_app --format md
-```
-
----
-
-### Generate Only JSON Report
-
-```bash
-python main.py analyze sample_projects/calculator_app --format json
-```
-
----
-
-### Generate Only HTML Report
-
-```bash
-python main.py analyze sample_projects/calculator_app --format html
-```
-
----
-
-### Skip AI Explanation
-
-```bash
-python main.py analyze sample_projects/calculator_app --skip-ai
-```
-
----
-
-### Force AI Explanation
-
-```bash
-python main.py analyze sample_projects/calculator_app --use-ai
-```
-
----
-
-### Skip Test Generation and Pytest Run
-
-```bash
-python main.py analyze sample_projects/calculator_app --skip-tests
-```
-
----
-
-### Force Test Generation and Pytest Run
-
-```bash
-python main.py analyze sample_projects/calculator_app --run-tests
-```
-
----
-
-### Disable Score History Tracking
-
-```bash
-python main.py analyze sample_projects/calculator_app --no-history
-```
-
----
-
-### Force Score History Tracking
-
-```bash
-python main.py analyze sample_projects/calculator_app --track-history
-```
-
----
-
-### Combine Options
-
-```bash
-python main.py analyze sample_projects/vulnerable_app --format html --skip-ai --skip-tests
-```
-
----
-
-### Custom Output Directory
-
-```bash
-python main.py analyze sample_projects/calculator_app --output-dir custom_reports
-```
-
-This creates reports inside:
-
-```text
-custom_reports/
-```
-
----
-
-## Example Terminal Output
-
-```text
-Runtime Options
-----------------------------------------
-Project path: sample_projects/calculator_app
-Report format: all
-Output directory: reports
-Skip AI: True
-Skip tests: False
-Track history: True
-Check security: True
-Max function lines: 30
-Max arguments: 5
-Allow HTTP URLs: False
-
-CodeLens AI Report
-========================================
-Files scanned: 1
-Imports found: 0
-Functions found: 7
-Classes found: 0
-Total issues found: 7
-Code quality issues found: 7
-Security issues found: 0
-Test suggestions generated: 7
-Pytest files generated: 1
-Test run status: Passed
-AI explanation generated: False (skipped)
-
-Code Quality and Security Score
-----------------------------------------
-Score: 53/100
-Grade: D
-Status: Poor
-Critical severity issues: 0
-High severity issues: 1
-Medium severity issues: 2
-Low severity issues: 4
-
-Score History
-----------------------------------------
-Total runs tracked: 2
-Trend: Unchanged
-Previous score: 53/100
-Score change: 0
-
-Markdown report generated: reports/codelens_report.md
-JSON report generated: reports/codelens_report.json
-HTML report generated: reports/codelens_report.html
-Score history JSON generated: reports/score_history.json
-Score history Markdown generated: reports/score_history.md
-```
-
----
-
-## Code Quality Issues Detected
-
-### Missing Docstring
-
-```text
-[Missing Docstring]
-Severity: Low
-Message: Function does not have a docstring.
-Suggestion: Add a short docstring explaining what the function does.
-```
-
-### Possible Runtime Error
-
-```text
-[Possible Runtime Error]
-Severity: High
-Message: Function uses division. This may crash if the denominator is zero.
-Suggestion: Add a check before division, for example: if b == 0, raise ValueError.
-```
-
-### Too Many Arguments
-
-```text
-[Too Many Arguments]
-Severity: Medium
-Message: Function has too many arguments.
-Suggestion: Consider grouping related values into a dictionary, class, or data object.
-```
-
-### Long Function
-
-```text
-[Long Function]
-Severity: Medium
-Message: Function is too long.
-Suggestion: Consider splitting this function into smaller helper functions.
-```
-
----
-
-## Security Issues Detected
-
-### Unsafe eval Usage
-
-```text
-[Unsafe eval Usage]
-Severity: Critical
-Message: The code uses eval(), which can execute arbitrary Python code.
-Suggestion: Avoid eval(). Use safer parsing methods such as ast.literal_eval() when possible.
-```
-
-### Unsafe exec Usage
-
-```text
-[Unsafe exec Usage]
-Severity: Critical
-Message: The code uses exec(), which can execute arbitrary Python code.
-Suggestion: Avoid exec(). Refactor the logic so dynamic code execution is not required.
-```
-
-### Unsafe os.system Usage
-
-```text
-[Unsafe os.system Usage]
-Severity: High
-Message: The code uses os.system(), which may allow command injection if user input is included.
-Suggestion: Use subprocess.run() with a list of arguments and avoid shell=True.
-```
-
-### Subprocess shell=True
-
-```text
-[Subprocess shell=True]
-Severity: High
-Message: The code uses subprocess with shell=True, which can be dangerous with user input.
-Suggestion: Use shell=False and pass commands as a list of arguments.
-```
-
-### Unsafe Pickle Usage
-
-```text
-[Unsafe Pickle Usage]
-Severity: High
-Message: The code uses pickle to load data. Pickle can execute code when loading untrusted data.
-Suggestion: Avoid loading pickle data from untrusted sources. Use JSON for safer data exchange.
-```
-
-### Unsafe YAML Load
-
-```text
-[Unsafe YAML Load]
-Severity: High
-Message: The code uses yaml.load() without SafeLoader.
-Suggestion: Use yaml.safe_load() or yaml.load(..., Loader=yaml.SafeLoader).
-```
-
-### Hardcoded Secret
-
-```text
-[Hardcoded Secret]
-Severity: High
-Message: A variable appears to contain a hardcoded secret.
-Suggestion: Move secrets to environment variables or a secure secrets manager.
-```
-
-### Insecure HTTP URL
-
-```text
-[Insecure HTTP URL]
-Severity: Low
-Message: The code contains an insecure HTTP URL.
-Suggestion: Use HTTPS URLs whenever possible.
-```
-
----
-
-## Code Quality and Security Score
-
-CodeLens AI calculates a score from 0 to 100.
-
-The score starts at 100 and decreases based on issue severity:
-
-```text
-Critical issue: -20 points
-High issue:     -15 points
-Medium issue:   -8 points
-Low issue:      -4 points
-```
-
-Grade mapping:
-
-```text
-90 - 100: A, Excellent
-75 - 89:  B, Good
-60 - 74:  C, Needs Improvement
-40 - 59:  D, Poor
-0  - 39:  F, Critical
-```
-
----
-
-## Score History Tracking
-
-CodeLens AI tracks score history across runs.
-
-It generates:
-
-```text
-reports/score_history.json
-reports/score_history.md
-```
-
-### `score_history.json`
-
-This file stores structured score history data.
-
-It includes:
-
-- Run timestamp
-- Project path
-- Current score
-- Previous score
-- Score change
-- Trend
-- Grade
-- Status
-- Issue counts
-- Test status
-- Generated report paths
-
-### `score_history.md`
-
-This file stores a readable history table.
-
-It shows:
-
-- Latest run
-- Current score
-- Previous score
-- Score change
-- Trend
-- Recent run history
-
-Trend values can be:
-
-```text
-First run for this project
-Improved
-Declined
-Unchanged
-```
-
-To avoid updating history during temporary testing:
-
-```bash
-python main.py analyze sample_projects/calculator_app --no-history
-```
-
----
-
-## Reports
-
-After running CodeLens AI, reports are generated inside:
-
-```text
-reports/
-```
-
-Main reports:
-
-```text
-reports/codelens_report.md
-reports/codelens_report.json
-reports/codelens_report.html
-```
-
-Score history reports:
-
-```text
-reports/score_history.json
-reports/score_history.md
-```
-
-### Markdown Report
-
-The Markdown report is useful for:
-
-- Reading inside VS Code
-- Uploading as a GitHub Actions artifact
-- Sharing project analysis in text format
-
-### JSON Report
-
-The JSON report is useful for:
-
-- Web dashboards
-- GitHub Actions artifacts
-- API integrations
-- Charts and visualizations
-- Score history tracking
-- Comparing projects over time
-
-### HTML Report
-
-The HTML report is useful for:
-
-- Browser viewing
-- Project demos
-- Faculty mentor presentations
-- Future dashboard design
-
-Open the HTML report on Windows:
+Open the HTML report:
 
 ```bash
 start reports/codelens_report.html
+```
+
+Open Markdown reports in VS Code:
+
+```bash
+code reports/codelens_report.md
+code reports/score_history.md
+code reports/issue_trends.md
+code reports/quality_gate.md
+code reports/pr_comment.md
 ```
 
 ---
@@ -870,146 +774,160 @@ start reports/codelens_report.html
 
 ### Calculator App
 
-The calculator app is a simple project used to test basic code quality analysis.
+Path:
 
-Run:
+```text
+sample_projects/calculator_app
+```
+
+Use:
 
 ```bash
 python main.py analyze sample_projects/calculator_app
 ```
 
-or simply:
+This project is useful for demonstrating:
 
-```bash
-python main.py analyze
-```
-
-if `codelens.yml` has:
-
-```yaml
-project:
-  default_path: sample_projects/calculator_app
-```
+- Code scanning
+- Function detection
+- Test suggestion generation
+- Pytest generation
+- Reports
+- Score calculation
 
 ---
 
 ### Vulnerable App
 
-The vulnerable app intentionally contains unsafe code patterns so that CodeLens AI can demonstrate security detection.
+Path:
 
-Run:
-
-```bash
-python main.py analyze sample_projects/vulnerable_app --skip-tests
+```text
+sample_projects/vulnerable_app
 ```
 
-This sample may detect:
+Use:
 
-- Hardcoded API keys
-- Hardcoded passwords
-- Insecure HTTP URLs
-- `eval()`
-- `exec()`
-- `os.system()`
-- `subprocess.run(..., shell=True)`
-- `pickle.load()`
-- `yaml.load()` without SafeLoader
+```bash
+python main.py analyze sample_projects/vulnerable_app
+```
+
+This project is useful for demonstrating:
+
+- Security issue detection
+- Dangerous function usage
+- Hardcoded secret detection
+- Insecure URL detection
+- Score reduction based on severity
 
 ---
 
 ## GitHub Actions
 
-This project includes a GitHub Actions workflow:
+The workflow file is located at:
 
 ```text
 .github/workflows/codelens.yml
 ```
 
-The workflow automatically runs on:
-
-- Push to `main`
-- Pull request to `main`
-- Manual workflow trigger
-
-It performs the following steps:
+It runs automatically on:
 
 ```text
-Checkout repository
-        ↓
-Set up Python
-        ↓
-Install dependencies
-        ↓
-Run CodeLens AI using codelens.yml config
-        ↓
-Run generated pytest tests
-        ↓
-Upload Markdown, JSON, HTML, and score history reports as artifacts
+push to main
+pull_request to main
+manual workflow_dispatch
 ```
 
-The uploaded artifact contains:
+The workflow uploads reports as artifacts.
+
+On pull requests, it can also post a CodeLens AI summary comment using:
 
 ```text
-reports/codelens_report.md
-reports/codelens_report.json
-reports/codelens_report.html
-reports/score_history.json
-reports/score_history.md
+reports/pr_comment.md
 ```
 
 ---
 
-## Git Ignore Note
+## Quality Gate Behavior in CI
 
-The `reports/` and `generated_tests/` folders are generated output folders.
+When quality gate is enabled, CodeLens AI exits with code `1` if the quality gate fails.
 
-They are usually ignored by Git because they are created automatically whenever CodeLens AI runs.
+This means GitHub Actions can fail automatically when the project does not meet quality standards.
+
+For early development, the default config uses:
+
+```yaml
+quality_gate:
+  min_score: 0
+```
+
+This keeps the workflow from failing too aggressively while the tool is being built.
+
+For stricter production-like behavior, use:
+
+```yaml
+quality_gate:
+  enabled: true
+  min_score: 70
+  max_critical_issues: 0
+  max_high_issues: 5
+  fail_on_tests_failed: true
+```
 
 ---
 
-## Current Status
+## Recommended Demo Command
 
-Completed:
+For a clean demo, run:
 
-- Static Python code scanner
-- Rule-based code quality analyzer
-- Rule-based security analyzer
-- Code quality and security score calculator
-- Markdown report generator
-- JSON report generator
-- HTML report generator
-- Score history tracking
-- CLI options
-- Config file support using `codelens.yml`
-- Test suggestion generator
-- Pytest file generator
-- Automatic pytest runner
-- AI-powered codebase explanation using Groq
-- Sample calculator project
-- Sample vulnerable project
-- Demo guide
-- GitHub Actions workflow
-- GitHub Actions report artifact upload
+```bash
+python main.py analyze sample_projects/calculator_app --format all --skip-ai
+```
+
+Then open:
+
+```bash
+start reports/codelens_report.html
+```
+
+For security demo:
+
+```bash
+python main.py analyze sample_projects/vulnerable_app --format all --skip-ai --skip-tests --no-quality-gate
+```
 
 ---
 
 ## Future Improvements
 
-Planned improvements:
+Possible future improvements:
 
-- Better AI-generated test cases
-- Pull request comment generation
-- Support for analyzing larger real-world repositories
-- Support for multiple programming languages
-- Web dashboard for reports
-- Issue trend comparison between runs
-- More security rules
-- Dependency vulnerability scanning
-- Advanced config rule profiles
-- Exporting report summaries as GitHub PR comments
+- Real dependency vulnerability scanning using `pip-audit`, Safety, or OSV
+- Support for more languages such as JavaScript, TypeScript, and Java
+- Better AI-based test generation using function source code
+- Code complexity metrics
+- Duplicate code detection
+- Full web dashboard
+- SARIF output for GitHub code scanning
+- Inline pull request review comments
+- Package publishing as a CLI tool
 
 ---
 
-## Author
+## Summary
 
-Built as a Python automation and AI code analysis project.
+CodeLens AI is a complete Python code review automation tool with:
+
+- Static code analysis
+- Security checks
+- Dependency checks
+- Test generation
+- Pytest execution
+- AI explanation
+- Reports
+- Score tracking
+- Issue trend tracking
+- PR comments
+- Quality gate enforcement
+- GitHub Actions integration
+
+It can be used locally or in CI/CD to understand and improve Python project quality.
