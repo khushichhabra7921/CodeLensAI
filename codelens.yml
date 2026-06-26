@@ -19,3 +19,19 @@ rules:
   require_pinned_dependencies: true
   allow_editable_installs: false
   allow_http_dependencies: false
+
+ignore:
+  folders:
+    - .git
+    - .venv
+    - venv
+    - __pycache__
+    - .pytest_cache
+    - .mypy_cache
+    - generated_tests
+    - reports
+    - node_modules
+    - dist
+    - build
+
+  files: []

@@ -30,6 +30,22 @@ DEFAULT_CONFIG = {
         "allow_editable_installs": False,
         "allow_http_dependencies": False,
     },
+    "ignore": {
+        "folders": [
+            ".git",
+            ".venv",
+            "venv",
+            "__pycache__",
+            ".pytest_cache",
+            ".mypy_cache",
+            "generated_tests",
+            "reports",
+            "node_modules",
+            "dist",
+            "build",
+        ],
+        "files": [],
+    },
 }
 
 
@@ -116,6 +132,22 @@ def normalize_report_format(report_format):
     return report_format
 
 
+def validate_list_config(config, section, key):
+    """
+    Validates that a config value is a list.
+    """
+
+    value = get_config_value(config, section, key, [])
+
+    if value is None:
+        return True
+
+    if not isinstance(value, list):
+        raise ValueError(f"{section}.{key} must be a list.")
+
+    return True
+
+
 def validate_config(config):
     """
     Validates important config values.
@@ -150,5 +182,8 @@ def validate_config(config):
 
     if not isinstance(max_arguments, int) or max_arguments <= 0:
         raise ValueError("rules.max_arguments must be a positive integer.")
+
+    validate_list_config(config, "ignore", "folders")
+    validate_list_config(config, "ignore", "files")
 
     return True

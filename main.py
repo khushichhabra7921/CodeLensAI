@@ -209,6 +209,7 @@ def resolve_options(args):
         track_history = config_track_history
 
     rules_config = config.get("rules", {})
+    ignore_config = config.get("ignore", {})
 
     return {
         "config": config,
@@ -219,6 +220,7 @@ def resolve_options(args):
         "skip_tests": skip_tests,
         "track_history": track_history,
         "rules_config": rules_config,
+        "ignore_config": ignore_config,
     }
 
 
@@ -264,6 +266,9 @@ def print_runtime_options(options):
     Prints runtime options resolved from config and CLI.
     """
 
+    ignored_folders = options["ignore_config"].get("folders", [])
+    ignored_files = options["ignore_config"].get("files", [])
+
     print()
     print("Runtime Options")
     print("-" * 40)
@@ -279,6 +284,8 @@ def print_runtime_options(options):
     print(f"Max arguments: {options['rules_config'].get('max_arguments', 5)}")
     print(f"Allow HTTP URLs: {options['rules_config'].get('allow_http_urls', False)}")
     print(f"Require pinned dependencies: {options['rules_config'].get('require_pinned_dependencies', True)}")
+    print(f"Ignored folders: {', '.join(ignored_folders) if ignored_folders else 'None'}")
+    print(f"Ignored files: {', '.join(ignored_files) if ignored_files else 'None'}")
 
 
 def print_project_summary(
@@ -347,6 +354,9 @@ def print_detailed_file_analysis(results):
     for file_result in results:
         print()
         print(f"File: {file_result['file']}")
+
+        if file_result.get("parse_error"):
+            print(f"Parse error: {file_result['parse_error']}")
 
         print("Imports:")
         if file_result["imports"]:
@@ -508,6 +518,7 @@ def main():
     project_path = Path(options["project_path"])
     output_dir = Path(options["output_dir"])
     rules_config = options["rules_config"]
+    ignore_config = options["ignore_config"]
 
     print_runtime_options(options)
 
@@ -519,10 +530,10 @@ def main():
         print(f"Error: Project path is not a folder: {project_path}")
         return
 
-    results = scan_project(project_path)
+    results = scan_project(project_path, ignore_config)
 
     if not results:
-        print("No Python files found in the given project path.")
+        print("No Python files found in the given project path after applying ignore patterns.")
         return
 
     code_quality_issues = analyze_project(results, rules_config)
