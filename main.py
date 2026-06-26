@@ -13,21 +13,24 @@ from codelens.json_reporter import generate_json_report
 from codelens.html_reporter import generate_html_report
 from codelens.history_tracker import update_score_history
 from codelens.score_calculator import calculate_code_score
+from codelens.config_loader import (
+    load_config,
+    validate_config,
+    get_config_value,
+    normalize_report_format,
+)
 
 
 def parse_arguments():
     """
     Parses command-line arguments.
 
-    Supported examples:
+    Config file support:
 
-    python main.py sample_projects/calculator_app
+    python main.py analyze
+    python main.py analyze --config codelens.yml
     python main.py analyze sample_projects/calculator_app
-    python main.py analyze sample_projects/calculator_app --format all
-    python main.py analyze sample_projects/calculator_app --format html
-    python main.py analyze sample_projects/calculator_app --skip-ai
-    python main.py analyze sample_projects/calculator_app --skip-tests
-    python main.py analyze sample_projects/calculator_app --no-history
+    python main.py analyze sample_projects/vulnerable_app --format html
     """
 
     parser = argparse.ArgumentParser(
@@ -48,60 +51,181 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--config",
+        default="codelens.yml",
+        help="Path to CodeLens config file. Default: codelens.yml.",
+    )
+
+    parser.add_argument(
         "--format",
         dest="report_format",
         choices=["all", "markdown", "md", "json", "html"],
-        default="all",
-        help="Report format to generate. Options: all, markdown, md, json, html. Default: all.",
+        default=None,
+        help="Report format to generate. Options: all, markdown, md, json, html.",
     )
 
     parser.add_argument(
         "--skip-ai",
         action="store_true",
+        default=None,
         help="Skip AI explanation generation.",
+    )
+
+    parser.add_argument(
+        "--use-ai",
+        action="store_true",
+        default=None,
+        help="Force AI explanation generation even if config disables it.",
     )
 
     parser.add_argument(
         "--skip-tests",
         action="store_true",
+        default=None,
         help="Skip pytest file generation and pytest execution.",
+    )
+
+    parser.add_argument(
+        "--run-tests",
+        action="store_true",
+        default=None,
+        help="Force pytest file generation and pytest execution even if config disables it.",
     )
 
     parser.add_argument(
         "--no-history",
         action="store_true",
+        default=None,
         help="Do not update score history files.",
     )
 
     parser.add_argument(
-        "--output-dir",
-        default="reports",
-        help="Directory where reports will be saved. Default: reports.",
+        "--track-history",
+        action="store_true",
+        default=None,
+        help="Force score history tracking even if config disables it.",
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Directory where reports will be saved.",
+    )
+
+    return parser.parse_args()
+
+
+def resolve_options(args):
+    """
+    Resolves final runtime options from config file and CLI arguments.
+
+    CLI options override config file values.
+    """
+
+    config = load_config(args.config)
+    validate_config(config)
+
+    default_project_path = get_config_value(
+        config,
+        "project",
+        "default_path",
+        "sample_projects/calculator_app",
+    )
 
     if args.command_or_path is None:
-        parser.print_help()
-        return None
+        resolved_project_path = default_project_path
 
-    if args.command_or_path == "analyze":
-        if args.project_path is None:
-            parser.error("Please provide a project path after 'analyze'.")
+    elif args.command_or_path == "analyze":
+        if args.project_path:
+            resolved_project_path = args.project_path
+        else:
+            resolved_project_path = default_project_path
 
-        args.resolved_project_path = args.project_path
     else:
         if args.project_path is not None:
-            parser.error(
+            raise ValueError(
                 "Invalid command format. Use: python main.py analyze <project_path>"
             )
 
-        args.resolved_project_path = args.command_or_path
+        resolved_project_path = args.command_or_path
 
-    if args.report_format == "md":
-        args.report_format = "markdown"
+    config_report_format = get_config_value(
+        config,
+        "reports",
+        "format",
+        "all",
+    )
 
-    return args
+    report_format = args.report_format or config_report_format
+    report_format = normalize_report_format(report_format)
+
+    output_dir = args.output_dir or get_config_value(
+        config,
+        "reports",
+        "output_dir",
+        "reports",
+    )
+
+    config_skip_ai = bool(
+        get_config_value(
+            config,
+            "analysis",
+            "skip_ai",
+            False,
+        )
+    )
+
+    if args.use_ai:
+        skip_ai = False
+    elif args.skip_ai:
+        skip_ai = True
+    else:
+        skip_ai = config_skip_ai
+
+    config_skip_tests = bool(
+        get_config_value(
+            config,
+            "analysis",
+            "skip_tests",
+            False,
+        )
+    )
+
+    if args.run_tests:
+        skip_tests = False
+    elif args.skip_tests:
+        skip_tests = True
+    else:
+        skip_tests = config_skip_tests
+
+    config_track_history = bool(
+        get_config_value(
+            config,
+            "analysis",
+            "track_history",
+            True,
+        )
+    )
+
+    if args.track_history:
+        track_history = True
+    elif args.no_history:
+        track_history = False
+    else:
+        track_history = config_track_history
+
+    rules_config = config.get("rules", {})
+
+    return {
+        "config": config,
+        "project_path": resolved_project_path,
+        "report_format": report_format,
+        "output_dir": output_dir,
+        "skip_ai": skip_ai,
+        "skip_tests": skip_tests,
+        "track_history": track_history,
+        "rules_config": rules_config,
+    }
 
 
 def should_generate_report(report_format, target_format):
@@ -114,13 +238,13 @@ def should_generate_report(report_format, target_format):
 
 def create_skipped_test_result():
     """
-    Creates a pytest result dictionary when --skip-tests is used.
+    Creates a pytest result dictionary when tests are skipped.
     """
 
     return {
         "passed": None,
         "skipped": True,
-        "command": "Skipped because --skip-tests was used.",
+        "command": "Skipped because test execution was disabled.",
         "return_code": 0,
         "stdout": "Test generation and pytest execution were skipped.",
         "stderr": "",
@@ -139,6 +263,26 @@ def get_test_status_label(test_run_result):
         return "Passed"
 
     return "Failed"
+
+
+def print_runtime_options(options):
+    """
+    Prints runtime options resolved from config and CLI.
+    """
+
+    print()
+    print("Runtime Options")
+    print("-" * 40)
+    print(f"Project path: {options['project_path']}")
+    print(f"Report format: {options['report_format']}")
+    print(f"Output directory: {options['output_dir']}")
+    print(f"Skip AI: {options['skip_ai']}")
+    print(f"Skip tests: {options['skip_tests']}")
+    print(f"Track history: {options['track_history']}")
+    print(f"Check security: {options['rules_config'].get('check_security', True)}")
+    print(f"Max function lines: {options['rules_config'].get('max_function_lines', 30)}")
+    print(f"Max arguments: {options['rules_config'].get('max_arguments', 5)}")
+    print(f"Allow HTTP URLs: {options['rules_config'].get('allow_http_urls', False)}")
 
 
 def print_project_summary(
@@ -357,11 +501,17 @@ def print_history_summary(history_summary):
 def main():
     args = parse_arguments()
 
-    if args is None:
+    try:
+        options = resolve_options(args)
+    except (ImportError, ValueError) as error:
+        print(f"Configuration error: {error}")
         return
 
-    project_path = Path(args.resolved_project_path)
-    output_dir = Path(args.output_dir)
+    project_path = Path(options["project_path"])
+    output_dir = Path(options["output_dir"])
+    rules_config = options["rules_config"]
+
+    print_runtime_options(options)
 
     if not project_path.exists():
         print(f"Error: Project path does not exist: {project_path}")
@@ -377,9 +527,14 @@ def main():
         print("No Python files found in the given project path.")
         return
 
-    code_quality_issues = analyze_project(results)
+    code_quality_issues = analyze_project(results, rules_config)
 
-    security_issues = analyze_security_issues(results)
+    check_security = rules_config.get("check_security", True)
+
+    if check_security:
+        security_issues = analyze_security_issues(results, rules_config)
+    else:
+        security_issues = []
 
     all_issues = code_quality_issues + security_issues
 
@@ -387,15 +542,15 @@ def main():
 
     test_suggestions = generate_test_suggestions(results)
 
-    if args.skip_tests:
+    if options["skip_tests"]:
         generated_test_files = []
         test_run_result = create_skipped_test_result()
     else:
         generated_test_files = generate_pytest_files(results)
         test_run_result = run_pytest("generated_tests")
 
-    if args.skip_ai:
-        ai_explanation = "AI explanation skipped because --skip-ai was used."
+    if options["skip_ai"]:
+        ai_explanation = "AI explanation skipped because skip_ai is enabled."
     else:
         ai_explanation = generate_ai_explanation(
             results,
@@ -405,7 +560,7 @@ def main():
 
     report_paths = {}
 
-    if should_generate_report(args.report_format, "markdown"):
+    if should_generate_report(options["report_format"], "markdown"):
         markdown_report_path = generate_markdown_report(
             results,
             all_issues,
@@ -420,7 +575,7 @@ def main():
 
         report_paths["markdown"] = markdown_report_path
 
-    if should_generate_report(args.report_format, "json"):
+    if should_generate_report(options["report_format"], "json"):
         json_report_path = generate_json_report(
             results,
             code_quality_issues,
@@ -437,7 +592,7 @@ def main():
 
         report_paths["json"] = json_report_path
 
-    if should_generate_report(args.report_format, "html"):
+    if should_generate_report(options["report_format"], "html"):
         html_report_path = generate_html_report(
             results,
             code_quality_issues,
@@ -456,7 +611,7 @@ def main():
 
     history_summary = None
 
-    if not args.no_history:
+    if options["track_history"]:
         history_summary = update_score_history(
             project_path,
             results,
@@ -467,7 +622,7 @@ def main():
             generated_test_files,
             test_run_result,
             code_score,
-            args.skip_ai,
+            options["skip_ai"],
             report_paths,
             output_dir=output_dir,
         )
@@ -484,7 +639,7 @@ def main():
         generated_test_files,
         test_run_result,
         code_score,
-        args.skip_ai,
+        options["skip_ai"],
     )
 
     print_detailed_file_analysis(results)

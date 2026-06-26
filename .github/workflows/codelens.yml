@@ -29,12 +29,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Run CodeLens AI on calculator sample
+      - name: Run CodeLens AI using config
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: llama-3.3-70b-versatile
         run: |
-          python main.py analyze sample_projects/calculator_app --format all --skip-ai
+          python main.py analyze --config codelens.yml
 
       - name: Run generated pytest tests
         run: |

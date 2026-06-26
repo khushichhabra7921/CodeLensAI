@@ -199,7 +199,7 @@ def add_issue(issues, issue_type, severity, file_path, line, message, suggestion
     )
 
 
-def analyze_security_issues(scan_results):
+def analyze_security_issues(scan_results, rules_config=None):
     """
     Analyzes scanned Python files for common security risks.
 
@@ -213,6 +213,11 @@ def analyze_security_issues(scan_results):
     - hardcoded secrets
     - insecure HTTP URLs
     """
+
+    if rules_config is None:
+        rules_config = {}
+
+    allow_http_urls = rules_config.get("allow_http_urls", False)
 
     security_issues = []
 
@@ -355,7 +360,7 @@ def analyze_security_issues(scan_results):
                                 "Move secrets to environment variables or a secure secrets manager.",
                             )
 
-                    if value.startswith("http://"):
+                    if value.startswith("http://") and not allow_http_urls:
                         add_issue(
                             security_issues,
                             "Insecure HTTP URL",
