@@ -9,12 +9,17 @@ def generate_markdown_report(
     test_run_result,
     ai_explanation,
     code_score=None,
+    security_issues=None,
     output_path="reports/codelens_report.md",
 ):
     """
-    Generates a Markdown report from scanner, analyzer, test suggestions,
-    generated test files, pytest result, AI explanation, and code quality score.
+    Generates a Markdown report from scanner, analyzer, security analyzer,
+    test suggestions, generated test files, pytest result, AI explanation,
+    and code quality score.
     """
+
+    if security_issues is None:
+        security_issues = []
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -23,6 +28,10 @@ def generate_markdown_report(
     total_imports = sum(len(file_result["imports"]) for file_result in scan_results)
     total_functions = sum(len(file_result["functions"]) for file_result in scan_results)
     total_classes = sum(len(file_result["classes"]) for file_result in scan_results)
+
+    code_quality_issues = [
+        issue for issue in issues if issue.get("category") != "Security"
+    ]
 
     lines = []
 
@@ -35,19 +44,22 @@ def generate_markdown_report(
     lines.append(f"- Imports found: {total_imports}")
     lines.append(f"- Functions found: {total_functions}")
     lines.append(f"- Classes found: {total_classes}")
-    lines.append(f"- Issues found: {len(issues)}")
+    lines.append(f"- Total issues found: {len(issues)}")
+    lines.append(f"- Code quality issues found: {len(code_quality_issues)}")
+    lines.append(f"- Security issues found: {len(security_issues)}")
     lines.append(f"- Test suggestions generated: {len(test_suggestions)}")
     lines.append(f"- Pytest files generated: {len(generated_test_files)}")
     lines.append(f"- Test run passed: {test_run_result['passed']}")
     lines.append("")
 
     if code_score:
-        lines.append("## Code Quality Score")
+        lines.append("## Code Quality and Security Score")
         lines.append("")
         lines.append(f"- Score: **{code_score['score']}/100**")
         lines.append(f"- Grade: **{code_score['grade']}**")
         lines.append(f"- Status: **{code_score['status']}**")
         lines.append(f"- Total issues: {code_score['total_issues']}")
+        lines.append(f"- Critical severity issues: {code_score['issue_summary']['Critical']}")
         lines.append(f"- High severity issues: {code_score['issue_summary']['High']}")
         lines.append(f"- Medium severity issues: {code_score['issue_summary']['Medium']}")
         lines.append(f"- Low severity issues: {code_score['issue_summary']['Low']}")
@@ -125,8 +137,8 @@ def generate_markdown_report(
     lines.append("## Code Quality Issues")
     lines.append("")
 
-    if issues:
-        for issue in issues:
+    if code_quality_issues:
+        for issue in code_quality_issues:
             lines.append(f"### {issue['type']}")
             lines.append("")
             lines.append(f"- Severity: **{issue['severity']}**")
@@ -136,7 +148,24 @@ def generate_markdown_report(
             lines.append(f"- Suggestion: {issue['suggestion']}")
             lines.append("")
     else:
-        lines.append("No issues found.")
+        lines.append("No code quality issues found.")
+        lines.append("")
+
+    lines.append("## Security Issues")
+    lines.append("")
+
+    if security_issues:
+        for issue in security_issues:
+            lines.append(f"### {issue['type']}")
+            lines.append("")
+            lines.append(f"- Severity: **{issue['severity']}**")
+            lines.append(f"- File: `{issue['file']}`")
+            lines.append(f"- Line: {issue['line']}")
+            lines.append(f"- Message: {issue['message']}")
+            lines.append(f"- Suggestion: {issue['suggestion']}")
+            lines.append("")
+    else:
+        lines.append("No security issues found.")
         lines.append("")
 
     lines.append("## Test Suggestions")

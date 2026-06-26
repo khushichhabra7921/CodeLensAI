@@ -3,6 +3,7 @@ from pathlib import Path
 
 from codelens.scanner import scan_project
 from codelens.analyzer import analyze_project
+from codelens.security_analyzer import analyze_security_issues
 from codelens.test_generator import generate_test_suggestions
 from codelens.test_writer import generate_pytest_files
 from codelens.test_runner import run_pytest
@@ -37,7 +38,9 @@ def get_project_path():
 
 def print_project_summary(
     results,
-    issues,
+    code_quality_issues,
+    security_issues,
+    all_issues,
     test_suggestions,
     generated_test_files,
     test_run_result,
@@ -60,18 +63,21 @@ def print_project_summary(
     print(f"Imports found: {total_imports}")
     print(f"Functions found: {total_functions}")
     print(f"Classes found: {total_classes}")
-    print(f"Issues found: {len(issues)}")
+    print(f"Total issues found: {len(all_issues)}")
+    print(f"Code quality issues found: {len(code_quality_issues)}")
+    print(f"Security issues found: {len(security_issues)}")
     print(f"Test suggestions generated: {len(test_suggestions)}")
     print(f"Pytest files generated: {len(generated_test_files)}")
     print(f"Generated tests passed: {test_run_result['passed']}")
     print("AI explanation generated: True")
 
     print()
-    print("Code Quality Score")
+    print("Code Quality and Security Score")
     print("-" * 40)
     print(f"Score: {code_score['score']}/100")
     print(f"Grade: {code_score['grade']}")
     print(f"Status: {code_score['status']}")
+    print(f"Critical severity issues: {code_score['issue_summary']['Critical']}")
     print(f"High severity issues: {code_score['issue_summary']['High']}")
     print(f"Medium severity issues: {code_score['issue_summary']['Medium']}")
     print(f"Low severity issues: {code_score['issue_summary']['Low']}")
@@ -131,13 +137,13 @@ def print_detailed_file_analysis(results):
             print(" None")
 
 
-def print_code_quality_issues(issues):
+def print_issues(title, issues):
     """
-    Prints all code quality issues found by the analyzer.
+    Prints issues in terminal.
     """
 
     print()
-    print("Code Quality Issues")
+    print(title)
     print("-" * 40)
 
     if issues:
@@ -214,9 +220,13 @@ def main():
         print("No Python files found in the given project path.")
         return
 
-    issues = analyze_project(results)
+    code_quality_issues = analyze_project(results)
 
-    code_score = calculate_code_score(results, issues)
+    security_issues = analyze_security_issues(results)
+
+    all_issues = code_quality_issues + security_issues
+
+    code_score = calculate_code_score(results, all_issues)
 
     test_suggestions = generate_test_suggestions(results)
 
@@ -226,23 +236,26 @@ def main():
 
     ai_explanation = generate_ai_explanation(
         results,
-        issues,
+        all_issues,
         test_suggestions,
     )
 
     report_path = generate_markdown_report(
         results,
-        issues,
+        all_issues,
         test_suggestions,
         generated_test_files,
         test_run_result,
         ai_explanation,
         code_score,
+        security_issues,
     )
 
     print_project_summary(
         results,
-        issues,
+        code_quality_issues,
+        security_issues,
+        all_issues,
         test_suggestions,
         generated_test_files,
         test_run_result,
@@ -251,7 +264,9 @@ def main():
 
     print_detailed_file_analysis(results)
 
-    print_code_quality_issues(issues)
+    print_issues("Code Quality Issues", code_quality_issues)
+
+    print_issues("Security Issues", security_issues)
 
     print_ai_explanation(ai_explanation)
 

@@ -1,6 +1,6 @@
 def calculate_code_score(scan_results, issues):
     """
-    Calculates an overall code quality score from 0 to 100.
+    Calculates an overall code quality and security score from 0 to 100.
 
     Score starts at 100 and decreases based on issue severity.
     """
@@ -8,12 +8,14 @@ def calculate_code_score(scan_results, issues):
     score = 100
 
     severity_penalties = {
+        "Critical": 20,
         "High": 15,
         "Medium": 8,
         "Low": 4,
     }
 
     issue_summary = {
+        "Critical": 0,
         "High": 0,
         "Medium": 0,
         "Low": 0,
