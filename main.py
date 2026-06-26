@@ -1,5 +1,4 @@
 import argparse
-import sys
 from pathlib import Path
 
 from codelens.scanner import scan_project
@@ -12,6 +11,7 @@ from codelens.ai_explainer import generate_ai_explanation
 from codelens.reporter import generate_markdown_report
 from codelens.json_reporter import generate_json_report
 from codelens.html_reporter import generate_html_report
+from codelens.history_tracker import update_score_history
 from codelens.score_calculator import calculate_code_score
 
 
@@ -27,6 +27,7 @@ def parse_arguments():
     python main.py analyze sample_projects/calculator_app --format html
     python main.py analyze sample_projects/calculator_app --skip-ai
     python main.py analyze sample_projects/calculator_app --skip-tests
+    python main.py analyze sample_projects/calculator_app --no-history
     """
 
     parser = argparse.ArgumentParser(
@@ -64,6 +65,12 @@ def parse_arguments():
         "--skip-tests",
         action="store_true",
         help="Skip pytest file generation and pytest execution.",
+    )
+
+    parser.add_argument(
+        "--no-history",
+        action="store_true",
+        help="Do not update score history files.",
     )
 
     parser.add_argument(
@@ -321,6 +328,31 @@ def print_generated_reports(report_paths):
     if "html" in report_paths:
         print(f"HTML report generated: {report_paths['html']}")
 
+    if "history_json" in report_paths:
+        print(f"Score history JSON generated: {report_paths['history_json']}")
+
+    if "history_markdown" in report_paths:
+        print(f"Score history Markdown generated: {report_paths['history_markdown']}")
+
+
+def print_history_summary(history_summary):
+    """
+    Prints score history trend summary.
+    """
+
+    if not history_summary:
+        return
+
+    print()
+    print("Score History")
+    print("-" * 40)
+    print(f"Total runs tracked: {history_summary['total_runs_tracked']}")
+    print(f"Trend: {history_summary['trend']}")
+
+    if history_summary["previous_score"] is not None:
+        print(f"Previous score: {history_summary['previous_score']}/100")
+        print(f"Score change: {history_summary['score_change']}")
+
 
 def main():
     args = parse_arguments()
@@ -422,6 +454,27 @@ def main():
 
         report_paths["html"] = html_report_path
 
+    history_summary = None
+
+    if not args.no_history:
+        history_summary = update_score_history(
+            project_path,
+            results,
+            code_quality_issues,
+            security_issues,
+            all_issues,
+            test_suggestions,
+            generated_test_files,
+            test_run_result,
+            code_score,
+            args.skip_ai,
+            report_paths,
+            output_dir=output_dir,
+        )
+
+        report_paths["history_json"] = history_summary["history_json_path"]
+        report_paths["history_markdown"] = history_summary["history_markdown_path"]
+
     print_project_summary(
         results,
         code_quality_issues,
@@ -443,6 +496,8 @@ def main():
     print_ai_explanation(ai_explanation)
 
     print_generated_tests(generated_test_files, test_run_result)
+
+    print_history_summary(history_summary)
 
     print_generated_reports(report_paths)
 

@@ -34,7 +34,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: llama-3.3-70b-versatile
         run: |
-          python main.py analyze sample_projects/calculator_app --format all
+          python main.py analyze sample_projects/calculator_app --format all --skip-ai
 
       - name: Run generated pytest tests
         run: |
@@ -48,3 +48,5 @@ jobs:
             reports/codelens_report.md
             reports/codelens_report.json
             reports/codelens_report.html
+            reports/score_history.json
+            reports/score_history.md
