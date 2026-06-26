@@ -13,6 +13,7 @@ from codelens.reporter import generate_markdown_report
 from codelens.json_reporter import generate_json_report
 from codelens.html_reporter import generate_html_report
 from codelens.history_tracker import update_score_history
+from codelens.issue_trend_tracker import update_issue_trends
 from codelens.score_calculator import calculate_code_score
 from codelens.config_loader import (
     load_config,
@@ -98,6 +99,20 @@ def parse_arguments():
         action="store_true",
         default=None,
         help="Force score history tracking even if config disables it.",
+    )
+
+    parser.add_argument(
+        "--no-issue-trends",
+        action="store_true",
+        default=None,
+        help="Do not update issue trend files.",
+    )
+
+    parser.add_argument(
+        "--track-issue-trends",
+        action="store_true",
+        default=None,
+        help="Force issue trend tracking even if config disables it.",
     )
 
     parser.add_argument(
@@ -208,6 +223,22 @@ def resolve_options(args):
     else:
         track_history = config_track_history
 
+    config_track_issue_trends = bool(
+        get_config_value(
+            config,
+            "analysis",
+            "track_issue_trends",
+            True,
+        )
+    )
+
+    if args.track_issue_trends:
+        track_issue_trends = True
+    elif args.no_issue_trends:
+        track_issue_trends = False
+    else:
+        track_issue_trends = config_track_issue_trends
+
     rules_config = config.get("rules", {})
     ignore_config = config.get("ignore", {})
 
@@ -219,6 +250,7 @@ def resolve_options(args):
         "skip_ai": skip_ai,
         "skip_tests": skip_tests,
         "track_history": track_history,
+        "track_issue_trends": track_issue_trends,
         "rules_config": rules_config,
         "ignore_config": ignore_config,
     }
@@ -278,6 +310,7 @@ def print_runtime_options(options):
     print(f"Skip AI: {options['skip_ai']}")
     print(f"Skip tests: {options['skip_tests']}")
     print(f"Track history: {options['track_history']}")
+    print(f"Track issue trends: {options['track_issue_trends']}")
     print(f"Check security: {options['rules_config'].get('check_security', True)}")
     print(f"Check dependencies: {options['rules_config'].get('check_dependencies', True)}")
     print(f"Max function lines: {options['rules_config'].get('max_function_lines', 30)}")
@@ -486,6 +519,12 @@ def print_generated_reports(report_paths):
     if "history_markdown" in report_paths:
         print(f"Score history Markdown generated: {report_paths['history_markdown']}")
 
+    if "issue_trends_json" in report_paths:
+        print(f"Issue trends JSON generated: {report_paths['issue_trends_json']}")
+
+    if "issue_trends_markdown" in report_paths:
+        print(f"Issue trends Markdown generated: {report_paths['issue_trends_markdown']}")
+
 
 def print_history_summary(history_summary):
     """
@@ -504,6 +543,27 @@ def print_history_summary(history_summary):
     if history_summary["previous_score"] is not None:
         print(f"Previous score: {history_summary['previous_score']}/100")
         print(f"Score change: {history_summary['score_change']}")
+
+
+def print_issue_trend_summary(issue_trend_summary):
+    """
+    Prints issue trend summary.
+    """
+
+    if not issue_trend_summary:
+        return
+
+    print()
+    print("Issue Trends")
+    print("-" * 40)
+    print(f"Total runs tracked: {issue_trend_summary['total_runs_tracked']}")
+    print(f"Trend: {issue_trend_summary['trend']}")
+    print(f"Previous total issues: {issue_trend_summary['previous_total_issues']}")
+    print(f"Current total issues: {issue_trend_summary['current_total_issues']}")
+    print(f"Issue count change: {issue_trend_summary['issue_count_change']}")
+    print(f"Added issues: {issue_trend_summary['added_count']}")
+    print(f"Resolved issues: {issue_trend_summary['resolved_count']}")
+    print(f"Unchanged issues: {issue_trend_summary['unchanged_count']}")
 
 
 def main():
@@ -644,6 +704,18 @@ def main():
         report_paths["history_json"] = history_summary["history_json_path"]
         report_paths["history_markdown"] = history_summary["history_markdown_path"]
 
+    issue_trend_summary = None
+
+    if options["track_issue_trends"]:
+        issue_trend_summary = update_issue_trends(
+            project_path,
+            all_issues,
+            output_dir=output_dir,
+        )
+
+        report_paths["issue_trends_json"] = issue_trend_summary["history_json_path"]
+        report_paths["issue_trends_markdown"] = issue_trend_summary["history_markdown_path"]
+
     print_project_summary(
         results,
         code_quality_issues,
@@ -670,6 +742,8 @@ def main():
     print_generated_tests(generated_test_files, test_run_result)
 
     print_history_summary(history_summary)
+
+    print_issue_trend_summary(issue_trend_summary)
 
     print_generated_reports(report_paths)
 

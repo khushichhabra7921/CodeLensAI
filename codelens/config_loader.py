@@ -19,6 +19,7 @@ DEFAULT_CONFIG = {
         "skip_ai": False,
         "skip_tests": False,
         "track_history": True,
+        "track_issue_trends": True,
     },
     "rules": {
         "max_function_lines": 30,

@@ -9,6 +9,7 @@ analysis:
   skip_ai: true
   skip_tests: false
   track_history: true
+  track_issue_trends: true
 
 rules:
   max_function_lines: 30

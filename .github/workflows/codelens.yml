@@ -50,3 +50,5 @@ jobs:
             reports/codelens_report.html
             reports/score_history.json
             reports/score_history.md
+            reports/issue_trends.json
+            reports/issue_trends.md
