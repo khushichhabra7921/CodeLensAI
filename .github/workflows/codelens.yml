@@ -47,3 +47,4 @@ jobs:
           path: |
             reports/codelens_report.md
             reports/codelens_report.json
+            reports/codelens_report.html
