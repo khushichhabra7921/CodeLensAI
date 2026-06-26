@@ -2,7 +2,7 @@
 
 ![CodeLens AI Analysis](https://github.com/khushichhabra7921/CodeLensAI/actions/workflows/codelens.yml/badge.svg)
 
-CodeLens AI is an AI-powered Python code analysis tool that scans a Python project, detects code quality issues, detects common security risks, generates pytest test suggestions, creates actual pytest test files, runs those tests automatically, calculates a code quality and security score, and produces a Markdown report with an AI-generated explanation of the codebase.
+CodeLens AI is an AI-powered Python code analysis tool that scans a Python project, detects code quality issues, detects common security risks, generates pytest test suggestions, creates actual pytest test files, runs those tests automatically, calculates a code quality and security score, and produces Markdown and JSON reports with an AI-generated explanation of the codebase.
 
 ---
 
@@ -28,8 +28,10 @@ CodeLens AI is an AI-powered Python code analysis tool that scans a Python proje
 - Creates actual pytest test files
 - Runs generated pytest tests automatically
 - Generates a Markdown report
+- Generates a structured JSON report
 - Uses Groq LLM to generate an AI explanation of the codebase
 - Runs automatically on GitHub Actions for every push and pull request
+- Uploads reports as GitHub Actions artifacts
 
 ---
 
@@ -42,6 +44,7 @@ CodeLens AI is an AI-powered Python code analysis tool that scans a Python proje
 - python-dotenv
 - GitHub Actions
 - Markdown report generation
+- JSON report generation
 
 ---
 
@@ -58,6 +61,7 @@ CodeLensAI/
 │   ├── __init__.py
 │   ├── ai_explainer.py
 │   ├── analyzer.py
+│   ├── json_reporter.py
 │   ├── reporter.py
 │   ├── scanner.py
 │   ├── score_calculator.py
@@ -77,7 +81,8 @@ CodeLensAI/
 │   └── test_calculator_generated.py
 │
 ├── reports/
-│   └── codelens_report.md
+│   ├── codelens_report.md
+│   └── codelens_report.json
 │
 ├── .env
 ├── .gitignore
@@ -112,6 +117,8 @@ It runs the generated tests
 It generates an AI explanation of the codebase
         ↓
 It creates a Markdown report
+        ↓
+It creates a structured JSON report
 ```
 
 ---
@@ -206,6 +213,9 @@ Critical severity issues: 2
 High severity issues: 7
 Medium severity issues: 0
 Low severity issues: 8
+
+Markdown report generated: reports/codelens_report.md
+JSON report generated: reports/codelens_report.json
 ```
 
 ---
@@ -351,25 +361,84 @@ Grade mapping:
 
 ---
 
-## Report
+## Reports
 
-After running CodeLens AI, a Markdown report is generated at:
+After running CodeLens AI, reports are generated inside:
+
+```text
+reports/
+```
+
+The Markdown report is generated at:
 
 ```text
 reports/codelens_report.md
 ```
 
-The report includes:
+The JSON report is generated at:
 
-- Project summary
-- Code quality and security score
-- Detailed file analysis
-- AI codebase explanation
-- Code quality issues
-- Security issues
-- Test suggestions
-- Generated pytest files
-- Pytest run result
+```text
+reports/codelens_report.json
+```
+
+The Markdown report is useful for human reading.
+
+The JSON report is useful for:
+
+- Web dashboards
+- GitHub Actions artifacts
+- API integrations
+- Charts and visualizations
+- Score history tracking
+- Comparing projects over time
+
+---
+
+## JSON Report Structure
+
+The JSON report contains structured data like this:
+
+```json
+{
+    "tool": {
+        "name": "CodeLens AI",
+        "report_type": "json",
+        "generated_at_utc": "2026-06-26T08:53:12.825884+00:00"
+    },
+    "project": {
+        "path": "sample_projects/vulnerable_app"
+    },
+    "summary": {
+        "files_scanned": 1,
+        "imports_found": 4,
+        "functions_found": 7,
+        "classes_found": 0,
+        "total_issues_found": 17,
+        "code_quality_issues_found": 7,
+        "security_issues_found": 10,
+        "test_suggestions_generated": 7,
+        "pytest_files_generated": 1,
+        "test_run_passed": true
+    },
+    "score": {
+        "score": 0,
+        "grade": "F",
+        "status": "Critical"
+    },
+    "scan_results": [],
+    "issues": {
+        "all": [],
+        "code_quality": [],
+        "security": []
+    },
+    "tests": {
+        "suggestions": [],
+        "generated_files": [],
+        "pytest_result": {}
+    },
+    "ai_explanation": ""
+}
+```
 
 ---
 
@@ -436,8 +505,23 @@ Run CodeLens AI
         ↓
 Run generated pytest tests
         ↓
-Upload Markdown report as artifact
+Upload Markdown and JSON reports as artifacts
 ```
+
+The uploaded artifact contains:
+
+```text
+reports/codelens_report.md
+reports/codelens_report.json
+```
+
+---
+
+## Git Ignore Note
+
+The `reports/` and `generated_tests/` folders are generated output folders.
+
+They are usually ignored by Git because they are created automatically whenever CodeLens AI runs.
 
 ---
 
@@ -450,6 +534,7 @@ Completed:
 - Rule-based security analyzer
 - Code quality and security score calculator
 - Markdown report generator
+- JSON report generator
 - Test suggestion generator
 - Pytest file generator
 - Automatic pytest runner
@@ -457,6 +542,7 @@ Completed:
 - Sample calculator project
 - Sample vulnerable project
 - GitHub Actions workflow
+- GitHub Actions report artifact upload
 
 ---
 
@@ -469,8 +555,9 @@ Planned improvements:
 - Support for analyzing larger real-world repositories
 - Support for multiple programming languages
 - Web dashboard for reports
-- JSON report export
 - HTML report export
+- Score history tracking
+- Issue trend comparison between runs
 
 ---
 
