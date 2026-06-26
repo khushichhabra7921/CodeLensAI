@@ -9,7 +9,47 @@ In simple terms:
 > CodeLens AI is a lightweight AI-assisted code review tool for Python projects.
 
 ---
+## Screenshots
 
+### HTML Dashboard Report
+
+The HTML dashboard gives a visual summary of project health, including score, issue breakdowns, test results, and detailed file analysis.
+
+![CodeLens AI HTML Dashboard](docs/images/html-dashboard.png)
+
+---
+
+### Terminal Analysis Output
+
+CodeLens AI prints a full terminal summary including runtime options, scanned files, issue counts, score, trends, quality gate result, and generated reports.
+
+![CodeLens AI Terminal Output](docs/images/terminal-analysis.png)
+
+---
+
+### Unit Tests
+
+The project includes unit tests for core CodeLens AI modules such as scanner, analyzer, security analyzer, dependency analyzer, score calculator, quality gate, and config loader.
+
+![CodeLens AI Unit Tests](docs/images/unit-tests.png)
+
+---
+
+### Quality Gate Report
+
+The quality gate checks whether the project passes configured CI/CD quality rules such as minimum score, maximum critical issues, and test result status.
+
+![CodeLens AI Quality Gate](docs/images/quality-gate.png)
+
+---
+
+### GitHub Actions Workflow
+
+CodeLens AI runs automatically in GitHub Actions on push, pull request, or manual workflow trigger.
+
+![CodeLens AI GitHub Actions](docs/images/github-actions.png)
+
+---
 ## Features
 
 ### Python Code Scanner
