@@ -15,6 +15,7 @@ from codelens.html_reporter import generate_html_report
 from codelens.history_tracker import update_score_history
 from codelens.issue_trend_tracker import update_issue_trends
 from codelens.pr_commenter import generate_pr_comment
+from codelens.quality_gate import evaluate_quality_gate, generate_quality_gate_reports
 from codelens.score_calculator import calculate_code_score
 from codelens.config_loader import (
     load_config,
@@ -128,6 +129,20 @@ def parse_arguments():
         action="store_true",
         default=None,
         help="Force PR comment Markdown generation even if config disables it.",
+    )
+
+    parser.add_argument(
+        "--no-quality-gate",
+        action="store_true",
+        default=None,
+        help="Disable quality gate evaluation.",
+    )
+
+    parser.add_argument(
+        "--quality-gate",
+        action="store_true",
+        default=None,
+        help="Force quality gate evaluation even if config disables it.",
     )
 
     parser.add_argument(
@@ -270,6 +285,13 @@ def resolve_options(args):
     else:
         generate_pr_comment_enabled = config_generate_pr_comment
 
+    quality_gate_config = config.get("quality_gate", {})
+
+    if args.quality_gate:
+        quality_gate_config["enabled"] = True
+    elif args.no_quality_gate:
+        quality_gate_config["enabled"] = False
+
     rules_config = config.get("rules", {})
     ignore_config = config.get("ignore", {})
 
@@ -283,6 +305,7 @@ def resolve_options(args):
         "track_history": track_history,
         "track_issue_trends": track_issue_trends,
         "generate_pr_comment": generate_pr_comment_enabled,
+        "quality_gate_config": quality_gate_config,
         "rules_config": rules_config,
         "ignore_config": ignore_config,
     }
@@ -344,6 +367,7 @@ def print_runtime_options(options):
     print(f"Track history: {options['track_history']}")
     print(f"Track issue trends: {options['track_issue_trends']}")
     print(f"Generate PR comment: {options['generate_pr_comment']}")
+    print(f"Quality gate enabled: {options['quality_gate_config'].get('enabled', True)}")
     print(f"Check security: {options['rules_config'].get('check_security', True)}")
     print(f"Check dependencies: {options['rules_config'].get('check_dependencies', True)}")
     print(f"Max function lines: {options['rules_config'].get('max_function_lines', 30)}")
@@ -558,6 +582,12 @@ def print_generated_reports(report_paths):
     if "issue_trends_markdown" in report_paths:
         print(f"Issue trends Markdown generated: {report_paths['issue_trends_markdown']}")
 
+    if "quality_gate_json" in report_paths:
+        print(f"Quality gate JSON generated: {report_paths['quality_gate_json']}")
+
+    if "quality_gate_markdown" in report_paths:
+        print(f"Quality gate Markdown generated: {report_paths['quality_gate_markdown']}")
+
     if "pr_comment" in report_paths:
         print(f"PR comment Markdown generated: {report_paths['pr_comment']}")
 
@@ -600,6 +630,31 @@ def print_issue_trend_summary(issue_trend_summary):
     print(f"Added issues: {issue_trend_summary['added_count']}")
     print(f"Resolved issues: {issue_trend_summary['resolved_count']}")
     print(f"Unchanged issues: {issue_trend_summary['unchanged_count']}")
+
+
+def print_quality_gate_summary(quality_gate_result):
+    """
+    Prints quality gate summary.
+    """
+
+    if not quality_gate_result:
+        return
+
+    print()
+    print("Quality Gate")
+    print("-" * 40)
+    print(f"Enabled: {quality_gate_result['enabled']}")
+    print(f"Status: {quality_gate_result['status']}")
+    print(f"Passed: {quality_gate_result['passed']}")
+    print(f"Score: {quality_gate_result['score']}/100")
+    print(f"Test status: {quality_gate_result['test_status']}")
+
+    if quality_gate_result["failures"]:
+        print("Failures:")
+        for failure in quality_gate_result["failures"]:
+            print(f"- {failure['rule']}: {failure['message']}")
+    else:
+        print("Failures: None")
 
 
 def main():
@@ -752,6 +807,21 @@ def main():
         report_paths["issue_trends_json"] = issue_trend_summary["history_json_path"]
         report_paths["issue_trends_markdown"] = issue_trend_summary["history_markdown_path"]
 
+    quality_gate_result = evaluate_quality_gate(
+        code_score,
+        all_issues,
+        test_run_result,
+        options["quality_gate_config"],
+    )
+
+    quality_gate_paths = generate_quality_gate_reports(
+        quality_gate_result,
+        output_dir=output_dir,
+    )
+
+    report_paths["quality_gate_json"] = quality_gate_paths["quality_gate_json_path"]
+    report_paths["quality_gate_markdown"] = quality_gate_paths["quality_gate_markdown_path"]
+
     if options["generate_pr_comment"]:
         pr_comment_path = generate_pr_comment(
             project_path,
@@ -801,7 +871,12 @@ def main():
 
     print_issue_trend_summary(issue_trend_summary)
 
+    print_quality_gate_summary(quality_gate_result)
+
     print_generated_reports(report_paths)
+
+    if quality_gate_result["enabled"] and not quality_gate_result["passed"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

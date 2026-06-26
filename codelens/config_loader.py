@@ -22,6 +22,16 @@ DEFAULT_CONFIG = {
         "track_history": True,
         "track_issue_trends": True,
     },
+    "quality_gate": {
+        "enabled": True,
+        "min_score": 0,
+        "max_total_issues": None,
+        "max_critical_issues": 0,
+        "max_high_issues": 10,
+        "max_medium_issues": None,
+        "max_low_issues": None,
+        "fail_on_tests_failed": True,
+    },
     "rules": {
         "max_function_lines": 30,
         "max_arguments": 5,
@@ -158,6 +168,22 @@ def validate_list_config(config, section, key):
     return True
 
 
+def validate_optional_int(config, section, key):
+    """
+    Validates that a config value is either None or a non-negative integer.
+    """
+
+    value = get_config_value(config, section, key, None)
+
+    if value is None:
+        return True
+
+    if not isinstance(value, int) or value < 0:
+        raise ValueError(f"{section}.{key} must be null or a non-negative integer.")
+
+    return True
+
+
 def validate_config(config):
     """
     Validates important config values.
@@ -196,5 +222,12 @@ def validate_config(config):
     validate_list_config(config, "ignore", "folders")
     validate_list_config(config, "ignore", "files")
     validate_list_config(config, "rules", "dependency_file_patterns")
+
+    validate_optional_int(config, "quality_gate", "min_score")
+    validate_optional_int(config, "quality_gate", "max_total_issues")
+    validate_optional_int(config, "quality_gate", "max_critical_issues")
+    validate_optional_int(config, "quality_gate", "max_high_issues")
+    validate_optional_int(config, "quality_gate", "max_medium_issues")
+    validate_optional_int(config, "quality_gate", "max_low_issues")
 
     return True

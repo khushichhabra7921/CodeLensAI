@@ -12,6 +12,16 @@ analysis:
   track_history: true
   track_issue_trends: true
 
+quality_gate:
+  enabled: true
+  min_score: 0
+  max_total_issues: null
+  max_critical_issues: 0
+  max_high_issues: 10
+  max_medium_issues: null
+  max_low_issues: null
+  fail_on_tests_failed: true
+
 rules:
   max_function_lines: 30
   max_arguments: 5
