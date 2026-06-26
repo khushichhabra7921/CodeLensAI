@@ -8,25 +8,27 @@ def generate_markdown_report(
     generated_test_files,
     test_run_result,
     ai_explanation,
-    output_path="reports/codelens_report.md"
+    code_score=None,
+    output_path="reports/codelens_report.md",
 ):
     """
     Generates a Markdown report from scanner, analyzer, test suggestions,
-    generated test files, pytest result, and AI explanation.
+    generated test files, pytest result, AI explanation, and code quality score.
     """
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     total_files = len(scan_results)
-    total_imports = sum(len(file["imports"]) for file in scan_results)
-    total_functions = sum(len(file["functions"]) for file in scan_results)
-    total_classes = sum(len(file["classes"]) for file in scan_results)
+    total_imports = sum(len(file_result["imports"]) for file_result in scan_results)
+    total_functions = sum(len(file_result["functions"]) for file_result in scan_results)
+    total_classes = sum(len(file_result["classes"]) for file_result in scan_results)
 
     lines = []
 
     lines.append("# CodeLens AI Report")
     lines.append("")
+
     lines.append("## Project Summary")
     lines.append("")
     lines.append(f"- Files scanned: {total_files}")
@@ -39,6 +41,18 @@ def generate_markdown_report(
     lines.append(f"- Test run passed: {test_run_result['passed']}")
     lines.append("")
 
+    if code_score:
+        lines.append("## Code Quality Score")
+        lines.append("")
+        lines.append(f"- Score: **{code_score['score']}/100**")
+        lines.append(f"- Grade: **{code_score['grade']}**")
+        lines.append(f"- Status: **{code_score['status']}**")
+        lines.append(f"- Total issues: {code_score['total_issues']}")
+        lines.append(f"- High severity issues: {code_score['issue_summary']['High']}")
+        lines.append(f"- Medium severity issues: {code_score['issue_summary']['Medium']}")
+        lines.append(f"- Low severity issues: {code_score['issue_summary']['Low']}")
+        lines.append("")
+
     lines.append("## Detailed File Analysis")
     lines.append("")
 
@@ -47,6 +61,8 @@ def generate_markdown_report(
         lines.append("")
 
         lines.append("#### Imports")
+        lines.append("")
+
         if file_result["imports"]:
             for item in file_result["imports"]:
                 lines.append(f"- `{item}`")
@@ -54,7 +70,9 @@ def generate_markdown_report(
             lines.append("- None")
 
         lines.append("")
+
         lines.append("#### Functions")
+        lines.append("")
 
         if file_result["functions"]:
             for function in file_result["functions"]:
@@ -76,7 +94,9 @@ def generate_markdown_report(
             lines.append("- None")
 
         lines.append("")
+
         lines.append("#### Classes")
+        lines.append("")
 
         if file_result["classes"]:
             for class_info in file_result["classes"]:

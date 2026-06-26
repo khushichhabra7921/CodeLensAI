@@ -1,4 +1,6 @@
 import sys
+from pathlib import Path
+
 from codelens.scanner import scan_project
 from codelens.analyzer import analyze_project
 from codelens.test_generator import generate_test_suggestions
@@ -6,44 +8,53 @@ from codelens.test_writer import generate_pytest_files
 from codelens.test_runner import run_pytest
 from codelens.ai_explainer import generate_ai_explanation
 from codelens.reporter import generate_markdown_report
+from codelens.score_calculator import calculate_code_score
 
 
-def main():
+def get_project_path():
+    """
+    Supports both commands:
+
+    python main.py sample_projects/calculator_app
+    python main.py analyze sample_projects/calculator_app
+    """
+
     if len(sys.argv) < 2:
-        print("Usage: python main.py <project_path>")
-        return
+        print("Usage:")
+        print("  python main.py <project_path>")
+        print("  python main.py analyze <project_path>")
+        return None
 
-    project_path = sys.argv[1]
+    if sys.argv[1] == "analyze":
+        if len(sys.argv) < 3:
+            print("Usage: python main.py analyze <project_path>")
+            return None
 
-    results = scan_project(project_path)
-    issues = analyze_project(results)
-    test_suggestions = generate_test_suggestions(results)
-    generated_test_files = generate_pytest_files(results)
-    test_run_result = run_pytest("generated_tests")
+        return sys.argv[2]
 
-    ai_explanation = generate_ai_explanation(
-        results,
-        issues,
-        test_suggestions
-    )
+    return sys.argv[1]
 
-    report_path = generate_markdown_report(
-        results,
-        issues,
-        test_suggestions,
-        generated_test_files,
-        test_run_result,
-        ai_explanation
-    )
+
+def print_project_summary(
+    results,
+    issues,
+    test_suggestions,
+    generated_test_files,
+    test_run_result,
+    code_score,
+):
+    """
+    Prints a short summary of the analysis result.
+    """
 
     print()
     print("CodeLens AI Report")
     print("=" * 40)
 
     total_files = len(results)
-    total_imports = sum(len(file["imports"]) for file in results)
-    total_functions = sum(len(file["functions"]) for file in results)
-    total_classes = sum(len(file["classes"]) for file in results)
+    total_imports = sum(len(file_result["imports"]) for file_result in results)
+    total_functions = sum(len(file_result["functions"]) for file_result in results)
+    total_classes = sum(len(file_result["classes"]) for file_result in results)
 
     print(f"Files scanned: {total_files}")
     print(f"Imports found: {total_imports}")
@@ -56,23 +67,39 @@ def main():
     print("AI explanation generated: True")
 
     print()
+    print("Code Quality Score")
+    print("-" * 40)
+    print(f"Score: {code_score['score']}/100")
+    print(f"Grade: {code_score['grade']}")
+    print(f"Status: {code_score['status']}")
+    print(f"High severity issues: {code_score['issue_summary']['High']}")
+    print(f"Medium severity issues: {code_score['issue_summary']['Medium']}")
+    print(f"Low severity issues: {code_score['issue_summary']['Low']}")
+
+
+def print_detailed_file_analysis(results):
+    """
+    Prints detailed information for every scanned Python file.
+    """
+
+    print()
     print("Detailed File Analysis")
     print("-" * 40)
 
-    for file in results:
+    for file_result in results:
         print()
-        print(f"File: {file['file']}")
+        print(f"File: {file_result['file']}")
 
         print("Imports:")
-        if file["imports"]:
-            for item in file["imports"]:
-                print(f"  - {item}")
+        if file_result["imports"]:
+            for item in file_result["imports"]:
+                print(f" - {item}")
         else:
-            print("  None")
+            print(" None")
 
         print("Functions:")
-        if file["functions"]:
-            for function in file["functions"]:
+        if file_result["functions"]:
+            for function in file_result["functions"]:
                 name = function["name"]
                 arguments = ", ".join(function["arguments"])
                 line_number = function["line_number"]
@@ -81,27 +108,33 @@ def main():
                 has_docstring = "Yes" if function["has_docstring"] else "No"
                 has_division = "Yes" if function["has_division"] else "No"
 
-                print(f"  - {name}({arguments})")
-                print(f"    Line: {line_number}")
-                print(f"    Lines of code: {line_count}")
-                print(f"    Arguments count: {argument_count}")
-                print(f"    Docstring: {has_docstring}")
-                print(f"    Uses division: {has_division}")
+                print(f" - {name}({arguments})")
+                print(f"   Line: {line_number}")
+                print(f"   Lines of code: {line_count}")
+                print(f"   Arguments count: {argument_count}")
+                print(f"   Docstring: {has_docstring}")
+                print(f"   Uses division: {has_division}")
         else:
-            print("  None")
+            print(" None")
 
         print("Classes:")
-        if file["classes"]:
-            for class_info in file["classes"]:
+        if file_result["classes"]:
+            for class_info in file_result["classes"]:
                 name = class_info["name"]
                 line_number = class_info["line_number"]
                 has_docstring = "Yes" if class_info["has_docstring"] else "No"
 
-                print(f"  - {name}")
-                print(f"    Line: {line_number}")
-                print(f"    Docstring: {has_docstring}")
+                print(f" - {name}")
+                print(f"   Line: {line_number}")
+                print(f"   Docstring: {has_docstring}")
         else:
-            print("  None")
+            print(" None")
+
+
+def print_code_quality_issues(issues):
+    """
+    Prints all code quality issues found by the analyzer.
+    """
 
     print()
     print("Code Quality Issues")
@@ -119,10 +152,22 @@ def main():
     else:
         print("No issues found.")
 
+
+def print_ai_explanation(ai_explanation):
+    """
+    Prints AI generated explanation or fallback explanation.
+    """
+
     print()
     print("AI Codebase Explanation")
     print("-" * 40)
     print(ai_explanation)
+
+
+def print_generated_tests(generated_test_files, test_run_result):
+    """
+    Prints generated pytest files and pytest result.
+    """
 
     print()
     print("Generated Pytest Files")
@@ -145,6 +190,72 @@ def main():
 
     print(f"Command: {test_run_result['command']}")
     print(f"Return code: {test_run_result['return_code']}")
+
+
+def main():
+    project_path = get_project_path()
+
+    if project_path is None:
+        return
+
+    project_path = Path(project_path)
+
+    if not project_path.exists():
+        print(f"Error: Project path does not exist: {project_path}")
+        return
+
+    if not project_path.is_dir():
+        print(f"Error: Project path is not a folder: {project_path}")
+        return
+
+    results = scan_project(project_path)
+
+    if not results:
+        print("No Python files found in the given project path.")
+        return
+
+    issues = analyze_project(results)
+
+    code_score = calculate_code_score(results, issues)
+
+    test_suggestions = generate_test_suggestions(results)
+
+    generated_test_files = generate_pytest_files(results)
+
+    test_run_result = run_pytest("generated_tests")
+
+    ai_explanation = generate_ai_explanation(
+        results,
+        issues,
+        test_suggestions,
+    )
+
+    report_path = generate_markdown_report(
+        results,
+        issues,
+        test_suggestions,
+        generated_test_files,
+        test_run_result,
+        ai_explanation,
+        code_score,
+    )
+
+    print_project_summary(
+        results,
+        issues,
+        test_suggestions,
+        generated_test_files,
+        test_run_result,
+        code_score,
+    )
+
+    print_detailed_file_analysis(results)
+
+    print_code_quality_issues(issues)
+
+    print_ai_explanation(ai_explanation)
+
+    print_generated_tests(generated_test_files, test_run_result)
 
     print()
     print(f"Markdown report generated: {report_path}")
