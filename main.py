@@ -3,7 +3,7 @@ from pathlib import Path
 
 from codelens.scanner import scan_project
 from codelens.analyzer import analyze_project
-from codelens.security_analyzer import analyze_security_issues
+from codelens.security_analyzer import analyze_config_secrets, analyze_security_issues
 from codelens.dependency_analyzer import analyze_dependency_issues
 from codelens.test_generator import generate_test_suggestions
 from codelens.test_writer import generate_pytest_files
@@ -693,6 +693,7 @@ def main():
 
     if check_security:
         security_issues = analyze_security_issues(results, rules_config)
+        security_issues += analyze_config_secrets(project_path, ignore_config)
     else:
         security_issues = []
 

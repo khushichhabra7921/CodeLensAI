@@ -81,6 +81,7 @@ CodeLens AI detects basic code quality issues such as:
 - Long functions
 - Too many function arguments
 - Possible division-related runtime risks
+- Duplicate definitions (a function or class defined twice in the same scope, so the first one is silently overwritten, e.g. two FastAPI routes with the same function name)
 
 These rules can be configured from `codelens.yml`.
 
@@ -99,6 +100,8 @@ CodeLens AI detects risky Python patterns such as:
 - Unsafe `yaml.load()`
 - Hardcoded secrets
 - Insecure `http://` URLs
+
+It also scans YAML config files (`*.yml`, `*.yaml`: `docker-compose.yml`, GitHub Actions workflows, app config) for hardcoded secrets such as `- SECRET_KEY=abc123`. Values that reference an environment variable or CI secret (`${SECRET_KEY}`, `${{ secrets.X }}`) and obvious placeholders (`ci-only-test-key`, `dummy-password`) are not flagged.
 
 This helps identify common security problems during development.
 
@@ -178,11 +181,13 @@ CodeLens AI calculates a score from `0` to `100`.
 The score starts at `100` and decreases based on issue severity:
 
 ```text
-Critical: -20
-High:     -15
-Medium:   -8
-Low:      -4
+Critical: -20 each
+High:     -15 each
+Medium:   -8 each (at most -30 in total)
+Low:      -4 each (at most -20 in total)
 ```
+
+Medium and Low penalties are capped so that lots of minor issues, like missing docstrings, can't drag a project to `0` on their own: Low-severity warnings cost at most 20 points in total, while every High or Critical issue (such as a hardcoded secret) costs 15–20 points with no cap.
 
 It also assigns a grade:
 

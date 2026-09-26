@@ -1,5 +1,8 @@
 import ast
+import re
 from pathlib import Path
+
+from codelens.scanner import normalize_ignore_config, should_ignore_file, should_ignore_folder
 
 
 SECRET_KEYWORDS = [
@@ -31,6 +34,23 @@ PLACEHOLDER_VALUES = [
     "dummy",
     "placeholder",
 ]
+
+# A value containing one of these as a separate word is treated as a placeholder,
+# e.g. "ci-only-test-key" or "dummy_password"
+PLACEHOLDER_WORDS = {"test", "dummy", "example", "sample", "placeholder", "fake"}
+
+CONFIG_FILE_PATTERNS = ["*.yml", "*.yaml"]
+
+# YAML values that are keywords rather than secrets (e.g. "id-token: write", "secrets: inherit")
+CONFIG_KEYWORD_VALUES = {
+    "true", "false", "yes", "no", "on", "off", "null", "none", "~",
+    "read", "write", "inherit", "required", "optional",
+}
+
+# "KEY: value" (mappings) or "- KEY=value" / "KEY=value" (docker-compose environment lists)
+CONFIG_KEY_VALUE_PATTERN = re.compile(
+    r"""^\s*(?:-\s*)?["']?(?P<key>[A-Za-z_][\w.-]*)["']?\s*(?:=|:\s)\s*(?P<value>.*)$"""
+)
 
 
 def get_call_name(node):
@@ -91,6 +111,9 @@ def is_placeholder_secret(value):
         return True
 
     if cleaned_value.startswith("<") and cleaned_value.endswith(">"):
+        return True
+
+    if PLACEHOLDER_WORDS & set(re.split(r"[^a-z0-9]+", cleaned_value)):
         return True
 
     return False
@@ -370,5 +393,138 @@ def analyze_security_issues(scan_results, rules_config=None):
                             "The code contains an insecure HTTP URL.",
                             "Use HTTPS URLs whenever possible.",
                         )
+
+    return security_issues
+
+def discover_config_files(project_path, ignore_config=None):
+    """
+    Discovers YAML config files (docker-compose, CI workflows, app config) while
+    respecting ignored folders and files.
+    """
+
+    project_path = Path(project_path)
+    normalized_ignore = normalize_ignore_config(ignore_config)
+
+    config_files = set()
+
+    for pattern in CONFIG_FILE_PATTERNS:
+        for file_path in project_path.rglob(pattern):
+            relative_parts = file_path.relative_to(project_path).parts
+
+            if any(should_ignore_folder(part, normalized_ignore["folders"]) for part in relative_parts[:-1]):
+                continue
+
+            if should_ignore_file(file_path.name, normalized_ignore["files"]):
+                continue
+
+            config_files.add(file_path)
+
+    return sorted(config_files)
+
+
+def read_text_file(path):
+    """
+    Reads a text file as UTF-8, or UTF-16 when it starts with a UTF-16 byte order mark.
+    """
+
+    raw = path.read_bytes()
+
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return raw.decode("utf-16")
+
+    return raw.decode("utf-8-sig")
+
+
+def get_literal_config_value(raw_value):
+    """
+    Returns the literal value of a YAML entry, or None when the value is not a
+    hardcoded string (variable references, templates, block scalars, keywords...).
+    """
+
+    value = re.sub(r"\s+#.*$", "", raw_value).strip()
+
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1].strip()
+
+    if not value:
+        return None
+
+    # ${VAR}, $VAR, ${{ secrets.X }} and {{ template }} values come from elsewhere
+    if "$" in value or "{{" in value:
+        return None
+
+    # Block scalars, anchors/aliases, tags, inline collections
+    if value[0] in "|>&*![{":
+        return None
+
+    if value.lower() in CONFIG_KEYWORD_VALUES:
+        return None
+
+    if value.startswith(("/", "./", "../")) or value.replace(".", "", 1).isdigit():
+        return None
+
+    return value
+
+
+def analyze_config_secrets(project_path, ignore_config=None):
+    """
+    Detects hardcoded secrets in YAML config files, e.g.
+
+    docker-compose.yml:  - SECRET_KEY=my-real-key
+    GitHub workflow:     API_TOKEN: abc123
+    """
+
+    security_issues = []
+
+    for path in discover_config_files(project_path, ignore_config):
+        file_path = str(path)
+
+        try:
+            lines = read_text_file(path).splitlines()
+        except UnicodeDecodeError:
+            add_issue(
+                security_issues,
+                "Unreadable File",
+                "Low",
+                file_path,
+                1,
+                "This config file could not be read as UTF-8 or UTF-16.",
+                "Check the file encoding and convert it to UTF-8 if needed.",
+            )
+            continue
+
+        for line_number, line in enumerate(lines, start=1):
+            if line.lstrip().startswith("#"):
+                continue
+
+            match = CONFIG_KEY_VALUE_PATTERN.match(line)
+
+            if not match:
+                continue
+
+            key = match.group("key")
+
+            if not looks_like_secret_name(key):
+                continue
+
+            # e.g. SECRET_KEY_FILE, TOKEN_URL point at where a secret lives
+            if key.lower().replace("-", "_").endswith(("_file", "_path", "_url", "_name")):
+                continue
+
+            value = get_literal_config_value(match.group("value"))
+
+            if value is None or is_placeholder_secret(value):
+                continue
+
+            add_issue(
+                security_issues,
+                "Hardcoded Secret",
+                "High",
+                file_path,
+                line_number,
+                f"The config key '{key}' appears to contain a hardcoded secret.",
+                "Reference an environment variable (e.g. ${SECRET_KEY}) or a CI secret "
+                "(e.g. ${{ secrets.SECRET_KEY }}) instead of the literal value.",
+            )
 
     return security_issues

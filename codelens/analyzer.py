@@ -26,6 +26,7 @@ def analyze_project(scan_results, rules_config=None):
     - Possible division-by-zero risks
     - Functions with too many arguments
     - Long functions
+    - Functions/classes defined twice in the same scope
     """
 
     if rules_config is None:
@@ -101,5 +102,22 @@ def analyze_project(scan_results, rules_config=None):
                     f"Class '{class_name}' does not have a docstring.",
                     "Add a short docstring explaining what the class represents.",
                 )
+
+        for duplicate in file_result.get("duplicate_definitions", []):
+            name = duplicate["name"]
+            if duplicate["scope"]:
+                name = f"{duplicate['scope']}.{name}"
+
+            add_issue(
+                issues,
+                "Duplicate Definition",
+                "High",
+                file_path,
+                duplicate["line_number"],
+                f"{duplicate['kind'].capitalize()} '{name}' is defined again here; "
+                f"the definition on line {duplicate['first_line_number']} is overwritten and never used.",
+                "Delete or rename one of the definitions. If both are decorated (e.g. web routes), "
+                "only one of them handles requests.",
+            )
 
     return issues

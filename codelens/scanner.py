@@ -98,6 +98,78 @@ def get_line_count(node):
     return max(1, end_line - start_line + 1)
 
 
+def is_intentional_redefinition(node):
+    """
+    Checks whether a function is decorated in a way that makes reusing its name normal.
+
+    Examples:
+    @overload, @typing.overload
+    @value.setter / @value.getter / @value.deleter (property accessors)
+    @process.register (functools.singledispatch)
+    """
+
+    for decorator in getattr(node, "decorator_list", []):
+        if isinstance(decorator, ast.Call):
+            decorator = decorator.func
+
+        if isinstance(decorator, ast.Name) and decorator.id == "overload":
+            return True
+
+        if isinstance(decorator, ast.Attribute):
+            if decorator.attr in ("overload", "register"):
+                return True
+
+            if (
+                decorator.attr in ("setter", "getter", "deleter")
+                and isinstance(decorator.value, ast.Name)
+                and decorator.value.id == node.name
+            ):
+                return True
+
+    return False
+
+
+def find_duplicate_definitions(tree):
+    """
+    Finds functions and classes defined twice with the same name in the same scope.
+
+    The later definition silently replaces the earlier one, so the first is dead code.
+    Only the direct body of the module and of each class is checked, so definitions
+    inside if/try blocks (e.g. platform-specific fallbacks) are not reported.
+    """
+
+    definition_types = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+    duplicates = []
+
+    scopes = [(None, tree.body)]
+    scopes += [(node.name, node.body) for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
+
+    for scope_name, body in scopes:
+        first_definitions = {}
+
+        for node in body:
+            if not isinstance(node, definition_types):
+                continue
+
+            if is_intentional_redefinition(node):
+                continue
+
+            if node.name in first_definitions:
+                duplicates.append(
+                    {
+                        "name": node.name,
+                        "scope": scope_name,
+                        "kind": "class" if isinstance(node, ast.ClassDef) else "function",
+                        "line_number": node.lineno,
+                        "first_line_number": first_definitions[node.name],
+                    }
+                )
+            else:
+                first_definitions[node.name] = node.lineno
+
+    return duplicates
+
+
 def should_ignore_folder(folder_name, ignored_folders):
     """
     Checks whether a folder should be ignored.
@@ -247,6 +319,7 @@ def scan_python_file(file_path):
         "imports": [],
         "functions": [],
         "classes": [],
+        "duplicate_definitions": [],
     }
 
     try:
@@ -265,6 +338,7 @@ def scan_python_file(file_path):
     result["imports"] = sorted(set(visitor.imports))
     result["functions"] = visitor.functions
     result["classes"] = visitor.classes
+    result["duplicate_definitions"] = find_duplicate_definitions(tree)
 
     return result
 
